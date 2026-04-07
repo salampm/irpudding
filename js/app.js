@@ -997,9 +997,12 @@ function getModalContent(type, data) {
                             const bankEl = document.getElementById('payAmtBank');
                             const max = parseFloat(document.getElementById('modalPayMax').value) || 0;
                             
-                            const cash = parseFloat(cashEl?.value) || 0;
-                            const upi = parseFloat(upiEl?.value) || 0;
-                            const bank = parseFloat(bankEl?.value) || 0;
+                            var cashEl = document.getElementById('splitCash');
+                            var upiEl = document.getElementById('splitUPI');
+                            var bankEl = document.getElementById('splitBank');
+                            const cash = parseFloat(cashEl ? cashEl.value : 0) || 0;
+                            const upi = parseFloat(upiEl ? upiEl.value : 0) || 0;
+                            const bank = parseFloat(bankEl ? bankEl.value : 0) || 0;
                             const total = cash + upi + bank;
                             
                             const totalSumEl = document.getElementById('modalPayTotalSum');

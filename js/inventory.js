@@ -334,6 +334,7 @@ async function loadDailyStock() {
         ];
 
         function getRank(name) {
+            if (!name || typeof name !== 'string') return 999;
             var n = name.toLowerCase();
             for(var i=0; i<sortingOrder.length; i++) {
                 if (n.includes(sortingOrder[i])) return i;
@@ -385,24 +386,26 @@ async function loadDailyStock() {
 
         // Render table rows — using global data store instead of inline JSON
         tableBody.innerHTML = fullList.map(function(s) {
-            return '<tr>' +
-                '<td data-label="Product">' +
-                    '<strong>' + (s.productName || 'Unknown') + '</strong>' +
-                    '<br><small class="text-muted"><i class="fas fa-map-marker-alt"></i> ' + capitalize(s.location) + '</small>' +
-                '</td>' +
-                '<td data-label="Size"><span class="size-tag">' + capitalize(s.size) + ' (' + (s.ml || 0) + 'ml)</span></td>' +
-                '<td data-label="Qty"><strong class="' + (s.qty === 0 ? 'text-muted' : '') + '">' + (s.qty || 0) + '</strong></td>' +
-                '<td data-label="Actions">' +
-                    '<div style="display:flex;gap:4px;justify-content:flex-end;width:100%">' +
-                        '<button class="btn-icon" title="Add Quantity" onclick="openDailyStockModal(\'addDailyStockQty\',\'' + s.stockId + '\')">' +
-                            '<i class="fas fa-plus-circle"></i>' +
-                        '</button>' +
-                        '<button class="btn-icon danger" title="Remove / Waste" onclick="openDailyStockModal(\'removeDailyStockQty\',\'' + s.stockId + '\')">' +
-                            '<i class="fas fa-minus-circle"></i>' +
-                        '</button>' +
-                    '</div>' +
-                '</td>' +
-            '</tr>';
+            try {
+                return '<tr>' +
+                    '<td data-label="Product">' +
+                        '<strong>' + (s.productName || 'Unknown') + '</strong>' +
+                        '<br><small class="text-muted"><i class="fas fa-map-marker-alt"></i> ' + capitalize(s.location || '') + '</small>' +
+                    '</td>' +
+                    '<td data-label="Size"><span class="size-tag">' + capitalize(s.size || '') + ' (' + (s.ml || 0) + 'ml)</span></td>' +
+                    '<td data-label="Qty"><strong class="' + (s.qty === 0 ? 'text-muted' : '') + '">' + (s.qty || 0) + '</strong></td>' +
+                    '<td data-label="Actions">' +
+                        '<div style="display:flex;gap:4px;justify-content:flex-end;width:100%">' +
+                            '<button class="btn-icon" title="Add Quantity" onclick="openDailyStockModal(\'addDailyStockQty\',\'' + s.stockId + '\')">' +
+                                '<i class="fas fa-plus-circle"></i>' +
+                            '</button>' +
+                            '<button class="btn-icon danger" title="Remove / Waste" onclick="openDailyStockModal(\'removeDailyStockQty\',\'' + s.stockId + '\')">' +
+                                '<i class="fas fa-minus-circle"></i>' +
+                            '</button>' +
+                        '</div>' +
+                    '</td>' +
+                '</tr>';
+            } catch(err) { return ''; }
         }).join('') || '<tr><td colspan="4" class="no-data">No items found</td></tr>';
 
         console.log('✅ Daily stock rendered');
