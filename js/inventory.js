@@ -187,7 +187,7 @@ async function editRecipe(productId, productName) {
                 </div>
                 <div class="form-group" style="flex:1;margin-bottom:0">
                     <input type="number" class="recipe-input" data-ingredient="${key}"
-                           value="${recipe[key]?.qty_per_480 || ''}"
+                           value="${(recipe[key] && recipe[key].qty_per_480) ? recipe[key].qty_per_480 : ''}"
                            placeholder="for 480 pcs" min="0" step="0.01">
                 </div>
             </div>
@@ -312,6 +312,7 @@ async function loadDailyStock() {
         ];
 
         function getRank(name) {
+            if (!name) return 999;
             const n = name.toLowerCase();
             for(let i=0; i<sortingOrder.length; i++) {
                 if (n.includes(sortingOrder[i])) return i;
@@ -365,10 +366,10 @@ async function loadDailyStock() {
                 <td data-label="Qty"><strong class="${s.qty === 0 ? 'text-muted' : ''}">${s.qty || 0}</strong></td>
                 <td data-label="Actions">
                     <div style="display:flex;gap:4px;justify-content:flex-end;width:100%">
-                        <button class="btn-icon" title="Add Quantity" onclick='openModal("addDailyStockQty", ${JSON.stringify(s).replace(/"/g, '&quot;')})'>
+                        <button class="btn-icon" title="Add Quantity" onclick='openModal("addDailyStockQty", ${JSON.stringify(s).replace(/'/g, "&#39;").replace(/"/g, "&quot;")})'>
                             <i class="fas fa-plus-circle"></i>
                         </button>
-                        <button class="btn-icon danger" title="Remove / Waste" onclick='openModal("removeDailyStockQty", ${JSON.stringify(s).replace(/"/g, '&quot;')})'>
+                        <button class="btn-icon danger" title="Remove / Waste" onclick='openModal("removeDailyStockQty", ${JSON.stringify(s).replace(/'/g, "&#39;").replace(/"/g, "&quot;")})'>
                             <i class="fas fa-minus-circle"></i>
                         </button>
                     </div>
@@ -415,13 +416,18 @@ async function processDailyStockAdjust(action) {
             
             // 3. Log to Inventory Ledger (Only for additions)
             const ledgerId = generateId();
+            const elmProdId = document.getElementById('modalAdjProdId');
+            const elmProdName = document.getElementById('modalAdjProdName');
+            const elmSize = document.getElementById('modalAdjSize');
+            const elmLoc = document.getElementById('modalAdjLocation');
+
             await dbRef.inventoryLedger.child(ledgerId).set({
-                productId: currentData.productId || document.getElementById('modalAdjProdId')?.value,
-                productName: currentData.productName || document.getElementById('modalAdjProdName')?.value,
-                size: currentData.size || document.getElementById('modalAdjSize')?.value,
+                productId: currentData.productId || (elmProdId ? elmProdId.value : ''),
+                productName: currentData.productName || (elmProdName ? elmProdName.value : ''),
+                size: currentData.size || (elmSize ? elmSize.value : ''),
                 action: ledgerAction,
                 qty: adjQty,
-                location: currentData.location || document.getElementById('modalAdjLocation')?.value,
+                location: currentData.location || (elmLoc ? elmLoc.value : ''),
                 date: adjDate,
                 timestamp: Date.now(),
                 by: currentUser.name
@@ -476,9 +482,10 @@ async function saveDailyStock() {
     const adjDate = document.getElementById('modalDSDate').value || getTodayStr();
 
     const productId = prodSelect.value;
-    const productName = prodSelect.options[prodSelect.selectedIndex]?.textContent;
+    const productName = prodSelect.options[prodSelect.selectedIndex] ? prodSelect.options[prodSelect.selectedIndex].textContent : '';
     const size = sizeSelect.value;
-    const ml = sizeSelect.options[sizeSelect.selectedIndex]?.dataset?.ml || 0;
+    const sizeOpt = sizeSelect.options[sizeSelect.selectedIndex];
+    const ml = (sizeOpt && sizeOpt.dataset) ? sizeOpt.dataset.ml : 0;
     const qty = parseInt(document.getElementById('modalDSQty').value) || 0;
     const location = document.getElementById('modalDSLocation').value;
     
