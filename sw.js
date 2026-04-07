@@ -1,4 +1,4 @@
-const cacheName = 'ir-pudding-v1';
+const cacheName = 'ir-pudding-v1.6';
 const assets = [
   './',
   './index.html',
