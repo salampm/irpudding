@@ -210,3 +210,179 @@ async function saveRecipe(productId) {
 }
 
 console.log('🍨 Products module loaded');
+
+// ============================================
+// DAILY INVENTORY (Finished Stock)
+// ============================================
+
+async function loadDailyStock() {
+    const container = document.getElementById('dailyStockBody');
+    if (!container) return;
+
+    const loc = getActiveLocation();
+    container.innerHTML = '<tr><td colspan="4" class="no-data">Loading inventory...</td></tr>';
+
+    try {
+        const [prodSnap, stockSnap] = await Promise.all([
+            dbRef.products.once('value'),
+            dbRef.dailyStock ? dbRef.dailyStock.once('value') : firebase.database().ref('dailyStock').once('value')
+        ]);
+        
+        const products = prodSnap.val() || {};
+        const dailyStock = stockSnap.val() || {};
+        
+        let html = '';
+        Object.entries(dailyStock)
+            .filter(([id, s]) => loc === 'all' || s.location === loc)
+            .sort((a, b) => b[1].updatedAt - a[1].updatedAt)
+            .forEach(([id, s]) => {
+                html += `
+                    <tr>
+                        <td><strong>${s.productName}</strong><br><small class="text-muted"><i class="fas fa-map-marker-alt"></i> ${capitalize(s.location)}</small></td>
+                        <td><span class="size-tag">${capitalize(s.size)} (${s.ml}ml)</span></td>
+                        <td><strong>${s.qty}</strong></td>
+                        <td>
+                            <button class="btn-icon" title="Edit Quantity" onclick="editDailyStock('${id}', ${s.qty})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn-icon danger" title="Delete" onclick="deleteDailyStock('${id}', '${s.productName} - ${capitalize(s.size)}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+        container.innerHTML = html || '<tr><td colspan="4" class="no-data">No daily stock found. Add some inventory to start.</td></tr>';
+    } catch (e) {
+        container.innerHTML = '<tr><td colspan="4" class="no-data">Error loading daily stock</td></tr>';
+        console.error(e);
+    }
+}
+
+async function loadDSProducts() {
+    const select = document.getElementById('modalDSProduct');
+    if (!select) return;
+    
+    try {
+        const snap = await dbRef.products.once('value');
+        const products = snap.val() || {};
+        
+        select.innerHTML = '<option value="">Select product...</option>';
+        Object.entries(products)
+            .filter(([id, p]) => p.active !== false)
+            .sort((a, b) => a[1].name.localeCompare(b[1].name))
+            .forEach(([id, p]) => {
+                const opt = document.createElement('option');
+                opt.value = id;
+                opt.textContent = p.name;
+                opt.dataset.sizes = JSON.stringify(p.sizes || { small: 100, big: 150 });
+                select.appendChild(opt);
+            });
+    } catch (e) {
+        console.error('Error loading products for drop-down', e);
+    }
+}
+
+function loadDSProductSizes() {
+    const prodSelect = document.getElementById('modalDSProduct');
+    const sizeSelect = document.getElementById('modalDSSize');
+    if (!prodSelect || !sizeSelect) return;
+    
+    sizeSelect.innerHTML = '<option value="">Select size...</option>';
+    
+    const selectedOption = prodSelect.options[prodSelect.selectedIndex];
+    if (!selectedOption || !selectedOption.dataset.sizes) return;
+    
+    try {
+        const sizes = JSON.parse(selectedOption.dataset.sizes);
+        Object.entries(sizes).forEach(([size, ml]) => {
+            const opt = document.createElement('option');
+            opt.value = size;
+            opt.dataset.ml = ml;
+            opt.textContent = `${capitalize(size)} (${ml}ml)`;
+            sizeSelect.appendChild(opt);
+        });
+    } catch (e) {
+        console.error('Error parsing sizes', e);
+    }
+}
+
+async function saveDailyStock() {
+    const prodSelect = document.getElementById('modalDSProduct');
+    const sizeSelect = document.getElementById('modalDSSize');
+    
+    const productId = prodSelect.value;
+    const productName = prodSelect.options[prodSelect.selectedIndex]?.textContent;
+    const size = sizeSelect.value;
+    const ml = sizeSelect.options[sizeSelect.selectedIndex]?.dataset?.ml || 0;
+    const qty = parseInt(document.getElementById('modalDSQty').value) || 0;
+    const location = document.getElementById('modalDSLocation').value;
+    
+    if (!productId || !size) {
+        showToast('Please select a product and size', 'error');
+        return;
+    }
+    
+    const stockId = productId + '_' + size + '_' + location;
+    
+    try {
+        const stockRef = dbRef.dailyStock ? dbRef.dailyStock.child(stockId) : firebase.database().ref('dailyStock').child(stockId);
+        await stockRef.set({
+            productId,
+            productName,
+            size,
+            ml: parseInt(ml),
+            qty,
+            location,
+            updatedAt: Date.now(),
+            updatedBy: currentUser.uid
+        });
+        
+        closeModal();
+        showToast('Daily inventory updated!', 'success');
+        loadDailyStock();
+    } catch (e) {
+        showToast('Error saving inventory', 'error');
+        console.error(e);
+    }
+}
+
+function editDailyStock(id, currentQty) {
+    const newQty = prompt('Enter new current quantity:', currentQty);
+    if (newQty === null || newQty.trim() === '') return;
+    
+    const parsedQty = parseInt(newQty);
+    if (isNaN(parsedQty) || parsedQty < 0) {
+        showToast('Invalid quantity entered', 'error');
+        return;
+    }
+    
+    const stockRef = dbRef.dailyStock ? dbRef.dailyStock.child(id) : firebase.database().ref('dailyStock').child(id);
+    stockRef.update({ 
+        qty: parsedQty,
+        updatedAt: Date.now(),
+        updatedBy: currentUser.uid
+    })
+    .then(() => {
+        showToast('Quantity updated', 'success');
+        loadDailyStock();
+    })
+    .catch(e => {
+        showToast('Error updating quantity', 'error');
+    });
+}
+
+async function deleteDailyStock(id, name) {
+    const confirmed = await confirmAction(`Delete daily inventory record for "${name}"?`);
+    if (!confirmed) return;
+    
+    try {
+        const stockRef = dbRef.dailyStock ? dbRef.dailyStock.child(id) : firebase.database().ref('dailyStock').child(id);
+        await stockRef.remove();
+        showToast(`Record deleted`, 'success');
+        loadDailyStock();
+    } catch (e) {
+        showToast('Error deleting record', 'error');
+    }
+}

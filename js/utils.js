@@ -41,6 +41,12 @@ function openModal(type, data = null) {
     title.textContent = modalContent.title;
     body.innerHTML = modalContent.html;
 
+    // Evaluate injected scripts manually as innerHTML does not run scripts
+    const scripts = body.getElementsByTagName('script');
+    for (let i = 0; i < scripts.length; i++) {
+        eval(scripts[i].innerText);
+    }
+
     overlay.classList.add('show');
     document.body.style.overflow = 'hidden';
 
@@ -250,11 +256,19 @@ function getStatusBadge(status) {
     return `<span class="status ${classes[status] || ''}">${capitalize(status)}</span>`;
 }
 
-// ---- Confirm Dialog ----
-function confirmAction(message) {
+let _confirmPromise = null;
+function confirmAction(message, title = '⚠️ Confirm Action') {
     return new Promise((resolve) => {
-        resolve(window.confirm(message));
+        _confirmPromise = resolve;
+        openModal('confirm', { message, title });
     });
+}
+window.handleConfirm = function(result) {
+    if (typeof closeModal === 'function') closeModal();
+    if (_confirmPromise) {
+        _confirmPromise(result);
+        _confirmPromise = null;
+    }
 }
 
 console.log('🛠️ Utils module loaded');

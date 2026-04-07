@@ -637,6 +637,53 @@ input:focus, select:focus, textarea:focus {
 .btn-icon:hover { background: var(--primary-light); color: var(--primary); }
 .btn-icon.danger:hover { background: var(--danger-light); color: var(--danger); }
 
+/* ---- Sub Tabs ---- */
+.sub-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 24px;
+    border-bottom: 2px solid var(--border-light);
+    overflow-x: auto;
+}
+
+.sub-tab {
+    padding: 12px 20px;
+    background: none;
+    color: var(--text-light);
+    font-weight: 600;
+    font-size: 0.9rem;
+    position: relative;
+    white-space: nowrap;
+    border: none;
+    transition: var(--transition);
+}
+
+.sub-tab:hover { color: var(--primary); }
+
+.sub-tab.active {
+    color: var(--primary);
+}
+
+.sub-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--primary);
+    border-radius: 3px 3px 0 0;
+}
+
+.sub-tab-content {
+    display: none;
+    animation: fadeIn 0.3s ease;
+}
+
+.sub-tab-content.active {
+    display: block;
+}
+
 /* ======================
    SEARCH & FILTER BARS
    ====================== */

@@ -35,7 +35,9 @@ const dbRef = {
     staff: db.ref('staff'),
     salaryLogs: db.ref('salary_logs'),
     settings: db.ref('settings'),
-    expenseCategories: db.ref('expense_categories')
+    expenseCategories: db.ref('expense_categories'),
+    dailyStock: db.ref('dailyStock'),
+    units: db.ref('units')
 };
 
 console.log('🍮 IR Pudding Firebase initialized');

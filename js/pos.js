@@ -4,6 +4,7 @@
 
 function initPOS() {
     console.log('🧾 POS module loaded');
+    loadAvailableDailyStock();
 }
 
 async function loadOrders() {
@@ -52,6 +53,11 @@ async function loadOrders() {
                             ${o.status === 'placed' ? `
                                 <button class="btn-success btn-sm" onclick="markDelivered('${o.id}')">
                                     <i class="fas fa-check"></i> Mark Delivered
+                                </button>
+                            ` : ''}
+                            ${isOwner() ? `
+                                <button class="btn-danger btn-sm" onclick="voidOrder('${o.id}')" title="Void and Delete">
+                                    <i class="fas fa-trash"></i> Void
                                 </button>
                             ` : ''}
                         </div>
@@ -108,6 +114,23 @@ async function loadOrderCustomers() {
     } catch (e) { /* ignore */ }
 }
 
+window._availableDailyStock = [];
+window._currentOrderCustomerPrices = {};
+
+async function loadAvailableDailyStock(targetLoc = null) {
+    try {
+        const stockSnap = await (dbRef.dailyStock ? dbRef.dailyStock.once('value') : firebase.database().ref('dailyStock').once('value'));
+        const stock = stockSnap.val() || {};
+        const loc = targetLoc || getActiveLocation();
+
+        window._availableDailyStock = Object.entries(stock)
+            .filter(([id, s]) => loc === 'all' || s.location === loc)
+            .map(([id, s]) => ({ stockId: id, ...s }));
+    } catch(e) {
+        console.error("Error loading daily stock for order", e);
+    }
+}
+
 async function onOrderCustomerChange() {
     const select = document.getElementById('modalOrdCustomer');
     const customerId = select.value;
@@ -117,57 +140,112 @@ async function onOrderCustomerChange() {
         if (container) container.innerHTML = '<p class="text-muted">Select a customer first</p>';
         return;
     }
+    
+    // Get customer's location to filter stock
+    const custLoc = select.options[select.selectedIndex]?.dataset?.location;
+    await loadAvailableDailyStock(custLoc); // Ensure stock is fresh and filtered by customer location
 
     try {
-        const [prodSnap, custSnap] = await Promise.all([
-            dbRef.products.once('value'),
-            dbRef.customers.child(customerId).once('value')
-        ]);
-
-        const products = prodSnap.val() || {};
+        const custSnap = await dbRef.customers.child(customerId).once('value');
         const customer = custSnap.val() || {};
-        const customPrices = customer.customPrices || {};
+        window._currentOrderCustomerPrices = customer.customPrices || {};
 
-        let html = '';
-        Object.entries(products).forEach(([id, prod]) => {
-            if (prod.active === false) return;
-            const sizes = prod.sizes || { small: 100, big: 150 };
+        container.innerHTML = '';
+        if (window._availableDailyStock.length === 0) {
+            container.innerHTML = '<p class="no-data">No daily stock available to order</p>';
+            return;
+        }
 
-            Object.entries(sizes).forEach(([size, ml]) => {
-                const priceKey = `${id}_${size}`;
-                const price = customPrices[priceKey] || 0;
-
-                html += `
-                    <div class="form-row" style="margin-bottom:6px;align-items:center">
-                        <div style="flex:3">
-                            <span style="font-size:0.85rem">${prod.name} - ${capitalize(size)} (${ml}ml)</span>
-                            ${isOwner() && price ? `<small class="text-muted"> · ₹${price}</small>` : ''}
-                        </div>
-                        <div style="flex:1">
-                            <input type="number" class="order-qty-input" data-product="${id}"
-                                   data-productname="${prod.name}" data-size="${size}"
-                                   data-price="${price}" data-ml="${ml}"
-                                   min="0" step="1" value="0" placeholder="Qty"
-                                   onchange="calcOrderTotal()" oninput="calcOrderTotal()">
-                        </div>
-                    </div>
-                `;
-            });
-        });
-
-        container.innerHTML = html || '<p class="no-data">No products available</p>';
+        addOrderProductRow(); // auto-add first row
     } catch (e) {
-        container.innerHTML = '<p class="no-data">Error loading products</p>';
+        container.innerHTML = '<p class="no-data">Error loading customer details</p>';
     }
 }
 
+function addOrderProductRow() {
+    const custSelect = document.getElementById('modalOrdCustomer');
+    if (!custSelect || !custSelect.value) {
+        showToast('Please select a customer first', 'warning');
+        return;
+    }
+
+    const container = document.getElementById('orderProductsList');
+    if (!container) return;
+    
+    if (window._availableDailyStock.length === 0) {
+        showToast('No daily stock available to order', 'warning');
+        return;
+    }
+
+    if (container.querySelector('.no-data') || container.querySelector('.text-muted')) {
+        container.innerHTML = '';
+    }
+
+    const rowId = generateId();
+    const row = document.createElement('div');
+    row.className = 'form-row order-item-row';
+    row.style.marginBottom = '8px';
+    row.style.alignItems = 'center';
+    row.id = `order_row_${rowId}`;
+
+    let options = '<option value="">Select product...</option>';
+    window._availableDailyStock.forEach(s => {
+        options += `<option value="${s.stockId}">${s.productName} - ${capitalize(s.size)} (${s.ml}ml) [Avail: ${s.qty}]</option>`;
+    });
+
+    row.innerHTML = `
+        <div style="flex:3">
+            <select class="order-item-select" onchange="onOrderProductRowChange('${rowId}')" style="width:100%" data-row="${rowId}">
+                ${options}
+            </select>
+        </div>
+        <div style="flex:1">
+            <input type="number" class="order-price-input" id="price_${rowId}"
+                   min="0" step="0.5" placeholder="Price (₹)"
+                   onchange="calcOrderTotal()" oninput="calcOrderTotal()">
+        </div>
+        <div style="flex:1">
+            <input type="number" class="order-qty-input" id="qty_${rowId}"
+                   min="0" step="1" placeholder="Qty"
+                   onchange="calcOrderTotal()" oninput="calcOrderTotal()">
+        </div>
+        <div>
+            <button class="btn-icon danger" onclick="document.getElementById('order_row_${rowId}').remove(); calcOrderTotal();">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+
+    container.appendChild(row);
+}
+
+function onOrderProductRowChange(rowId) {
+    const select = document.querySelector(`select[data-row="${rowId}"]`);
+    const priceInput = document.getElementById(`price_${rowId}`);
+    if (!select || !priceInput) return;
+
+    const stockId = select.value;
+    if (!stockId) {
+        priceInput.value = '';
+        return;
+    }
+
+    const s = window._availableDailyStock.find(x => x.stockId === stockId);
+    if (!s) return;
+
+    const priceKey = `${s.productId}_${s.size}`;
+    const price = window._currentOrderCustomerPrices[priceKey] || '';
+    priceInput.value = price;
+    calcOrderTotal();
+}
+
 function calcOrderTotal() {
-    const inputs = document.querySelectorAll('.order-qty-input');
+    const rows = document.querySelectorAll('.order-item-row');
     let total = 0;
 
-    inputs.forEach(input => {
-        const qty = parseInt(input.value) || 0;
-        const price = parseFloat(input.dataset.price) || 0;
+    rows.forEach(row => {
+        const qty = parseInt(row.querySelector('.order-qty-input').value) || 0;
+        const price = parseFloat(row.querySelector('.order-price-input').value) || 0;
         total += qty * price;
     });
 
@@ -190,6 +268,7 @@ async function saveOrder() {
     const isGST = customerSelect.options[customerSelect.selectedIndex]?.dataset?.gst === '1';
     const invoiceNo = document.getElementById('modalOrdInvoice').value.trim();
     const date = document.getElementById('modalOrdDate').value;
+    const deliveryDate = document.getElementById('modalOrdDeliveryDate').value;
     const notes = document.getElementById('modalOrdNotes').value.trim();
 
     if (!customerId) {
@@ -198,19 +277,34 @@ async function saveOrder() {
     }
 
     // Collect items
-    const inputs = document.querySelectorAll('.order-qty-input');
+    const rows = document.querySelectorAll('.order-item-row');
     const items = [];
     let subtotal = 0;
+    let stockError = false;
 
-    inputs.forEach(input => {
-        const qty = parseInt(input.value) || 0;
+    rows.forEach(row => {
+        const select = row.querySelector('.order-item-select');
+        const stockId = select ? select.value : null;
+        if (!stockId) return;
+
+        const s = window._availableDailyStock.find(x => x.stockId === stockId);
+        if (!s) return;
+
+        const price = parseFloat(row.querySelector('.order-price-input').value) || 0;
+        const qty = parseInt(row.querySelector('.order-qty-input').value) || 0;
+
         if (qty > 0) {
-            const price = parseFloat(input.dataset.price) || 0;
+            if (qty > s.qty) {
+                showToast(`Not enough stock for ${s.productName}. Available: ${s.qty}`, 'error');
+                stockError = true;
+                return;
+            }
             items.push({
-                productId: input.dataset.product,
-                productName: input.dataset.productname,
-                size: input.dataset.size,
-                ml: input.dataset.ml,
+                stockId: s.stockId,
+                productId: s.productId,
+                productName: s.productName,
+                size: s.size,
+                ml: s.ml,
                 qty,
                 price,
                 lineTotal: qty * price
@@ -218,6 +312,8 @@ async function saveOrder() {
             subtotal += qty * price;
         }
     });
+
+    if (stockError) return;
 
     if (items.length === 0) {
         showToast('Please add at least one product', 'error');
@@ -232,7 +328,7 @@ async function saveOrder() {
         await dbRef.orders.child(orderId).set({
             customerId, customerName,
             location: customerLocation || (currentRole === ROLES.OWNER ? selectedLocation : currentLocation),
-            invoiceNo, date, items,
+            invoiceNo, date, deliveryDate, items,
             subtotal, gstAmount, gstApplied: isGST,
             total,
             status: 'placed',
@@ -243,8 +339,8 @@ async function saveOrder() {
             createdAt: Date.now()
         });
 
-        // Deduct stock based on recipes
-        await deductStockForOrder(items, customerLocation || currentLocation);
+        // Deduct stock from daily stock
+        await deductStockForOrder(items);
 
         closeModal();
         showToast('Order placed successfully!', 'success');
@@ -255,37 +351,20 @@ async function saveOrder() {
     }
 }
 
-async function deductStockForOrder(items, location) {
+async function deductStockForOrder(items) {
     try {
-        const recipeSnap = await dbRef.recipes.once('value');
-        const recipes = recipeSnap.val() || {};
-
         for (const item of items) {
-            const recipe = recipes[item.productId];
-            if (!recipe) continue;
-
-            for (const [ingredient, amounts] of Object.entries(recipe)) {
-                const perPiece = amounts.qty_per_piece || 0;
-                const totalDeduct = perPiece * item.qty;
-
-                if (totalDeduct > 0) {
-                    const loc = location || 'bangalore';
-                    // Try food first, then nonfood
-                    for (const type of ['food', 'nonfood']) {
-                        const ref = dbRef.stock.child(`${loc}/${type}/${ingredient}/qty`);
-                        const snap = await ref.once('value');
-                        if (snap.exists()) {
-                            const currentQty = parseFloat(snap.val()) || 0;
-                            await ref.set(Math.max(0, currentQty - totalDeduct));
-                            break;
-                        }
-                    }
+            if (item.stockId) {
+                const stockRef = dbRef.dailyStock ? dbRef.dailyStock.child(item.stockId) : firebase.database().ref('dailyStock').child(item.stockId);
+                const sSnap = await stockRef.once('value');
+                if (sSnap.exists()) {
+                    const currentQty = parseInt(sSnap.val().qty) || 0;
+                    await stockRef.update({ qty: Math.max(0, currentQty - item.qty) });
                 }
             }
         }
     } catch (e) {
         console.error('Stock deduction error:', e);
-        // Don't block order - just log error
     }
 }
 
@@ -301,6 +380,53 @@ async function markDelivered(orderId) {
         loadOrders();
     } catch (e) {
         showToast('Error updating order', 'error');
+    }
+}
+
+async function voidOrder(orderId) {
+    if (!orderId || !isOwner()) return;
+    
+    const msg = "⚠️ VOID ORDER?\n\nThis will:\n1. Delete this order permanently.\n2. Revert quantities back to Daily Inventory.\n3. Delete all associated payment records.\n\nAre you sure?";
+    if (!(await confirmAction(msg, "Void Order?"))) return;
+
+    try {
+        // 1. Get order details for stock reversal
+        const snap = await dbRef.orders.child(orderId).once('value');
+        const order = snap.val();
+        if (!order) return;
+
+        // 2. Revert Stock
+        const items = order.items || [];
+        for (const item of items) {
+            if (item.stockId) {
+                const stockRef = dbRef.dailyStock ? dbRef.dailyStock.child(item.stockId) : firebase.database().ref('dailyStock').child(item.stockId);
+                const sSnap = await stockRef.once('value');
+                if (sSnap.exists()) {
+                    const currentQty = parseInt(sSnap.val().qty) || 0;
+                    await stockRef.update({ qty: currentQty + (item.qty || 0) });
+                }
+            }
+        }
+
+        // 3. Delete associated payments
+        const paySnap = await dbRef.payments.orderByChild('orderId').equalTo(orderId).once('value');
+        const pays = paySnap.val() || {};
+        const payPromises = Object.keys(pays).map(id => dbRef.payments.child(id).remove());
+        await Promise.all(payPromises);
+
+        // 4. Delete Order
+        await dbRef.orders.child(orderId).remove();
+
+        showToast('Order voided and stock reverted!', 'success');
+        
+        // Reload views
+        if (typeof loadOrders === 'function') loadOrders();
+        if (typeof loadPayments === 'function') loadPayments();
+        if (typeof loadLedger === 'function') loadLedger();
+        
+    } catch (e) {
+        console.error('Void error:', e);
+        showToast('Error voiding order', 'error');
     }
 }
 

@@ -90,6 +90,27 @@ async function loadDefaultData() {
             await dbRef.products.set(defaultProducts);
         }
 
+        // Default Units
+        const unitSnap = await dbRef.units.once('value');
+        if (!unitSnap.exists()) {
+            const defaultUnits = {
+                pcs: { name: 'Pieces' },
+                grams: { name: 'Grams' },
+                kg: { name: 'Kg' },
+                liters: { name: 'Liters' },
+                ml: { name: 'Ml' },
+                rolls: { name: 'Rolls' },
+                packets: { name: 'Packets' },
+                boxes: { name: 'Boxes' }
+            };
+            await dbRef.units.set(defaultUnits);
+        }
+
+        // Load units for global use
+        dbRef.units.on('value', snap => {
+            window.unitsData = snap.val() || {};
+        });
+
         // Default food stock items
         const stockSnap = await dbRef.stock.once('value');
         if (!stockSnap.exists()) {
@@ -175,6 +196,9 @@ function onTabSwitch(tabName) {
             break;
         case 'products':
             if (typeof loadProducts === 'function') loadProducts();
+            break;
+        case 'dailyStock':
+            if (typeof loadDailyStock === 'function') loadDailyStock();
             break;
         case 'customers':
             if (typeof loadCustomers === 'function') loadCustomers();
@@ -297,15 +321,14 @@ function getModalContent(type, data) {
                         </div>
                         <div class="form-group">
                             <label>Unit</label>
-                            <select id="modalItemUnit">
+                            <select id="modalItemUnit" class="units-dropdown">
                                 <option value="Pieces">Pieces</option>
-                                <option value="Rolls">Rolls</option>
-                                <option value="Packets">Packets</option>
-                                <option value="Boxes">Boxes</option>
-                                <option value="Kg">Kg</option>
                             </select>
                         </div>
                     </div>
+                    <script>
+                        if(window.loadModalUnits) window.loadModalUnits();
+                    </script>
                     <div class="form-group">
                         <label>Low Stock Threshold</label>
                         <input type="number" id="modalItemThreshold" value="50" min="0">
@@ -326,6 +349,49 @@ function getModalContent(type, data) {
                 `
             };
 
+        case 'addStockStaff':
+            return {
+                title: '➕ Add Staff Store Item',
+                html: `
+                    <div class="form-group">
+                        <label>Item Name *</label>
+                        <input type="text" id="modalItemName" placeholder="e.g., Apron, Safety Shoes" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Initial Quantity</label>
+                            <input type="number" id="modalItemQty" value="0" min="0" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label>Unit</label>
+                            <select id="modalItemUnit" class="units-dropdown">
+                                <option value="Pieces">Pieces</option>
+                            </select>
+                        </div>
+                    </div>
+                    <script>
+                        if(window.loadModalUnits) window.loadModalUnits();
+                    </script>
+                    <div class="form-group">
+                        <label>Low Stock Threshold</label>
+                        <input type="number" id="modalItemThreshold" value="5" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Location *</label>
+                        <select id="modalItemLocation">
+                            ${currentRole === ROLES.OWNER ?
+                                '<option value="bangalore">Bangalore</option><option value="chennai">Chennai</option><option value="both" selected>Both Locations</option>' :
+                                '<option value="' + currentLocation + '">' + capitalize(currentLocation) + '</option>'
+                            }
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn-outline" onclick="closeModal()">Cancel</button>
+                        <button class="btn-primary" onclick="saveStockItem('staff')"><i class="fas fa-save"></i> Save Item</button>
+                    </div>
+                `
+            };
+
         case 'editStock':
             return {
                 title: '✏️ Edit ' + (data.name || 'Item'),
@@ -337,16 +403,20 @@ function getModalContent(type, data) {
                         <label>Item Name</label>
                         <input type="text" id="modalItemName" value="${data.name || ''}">
                     </div>
-                    <div class="form-row">
                         <div class="form-group">
                             <label>Quantity</label>
                             <input type="number" id="modalItemQty" value="${data.qty || 0}" min="0" step="0.1">
                         </div>
                         <div class="form-group">
                             <label>Unit</label>
-                            <input type="text" id="modalItemUnit" value="${data.unit || ''}">
+                            <select id="modalItemUnit" class="units-dropdown" data-value="${data.unit || 'Pieces'}">
+                                <option value="Pieces">Pieces</option>
+                            </select>
                         </div>
                     </div>
+                    <script>
+                        if(window.loadModalUnits) window.loadModalUnits();
+                    </script>
                     <div class="form-group">
                         <label>Low Stock Threshold</label>
                         <input type="number" id="modalItemThreshold" value="${data.threshold || 0}" min="0" step="0.5">
@@ -433,9 +503,18 @@ function getModalContent(type, data) {
                         </select>
                     </div>
                     <div class="form-group">
+                        <label>Category *</label>
+                        <select id="modalPurCategory" onchange="loadPurItemsByCategory(this.value)">
+                            <option value="">Select category...</option>
+                            <option value="food">Ingredients (Food)</option>
+                            <option value="nonfood">Non-Food Items</option>
+                            <option value="staff">Staff Store</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label>Item *</label>
                         <select id="modalPurItem">
-                            <option value="">Select item...</option>
+                            <option value="">Select item (Select Category First)...</option>
                         </select>
                     </div>
                     <div class="form-row">
@@ -562,6 +641,47 @@ function getModalContent(type, data) {
                 `
             };
 
+        case 'addDailyStock':
+            return {
+                title: '➕ Add Daily Inventory',
+                html: `
+                    <div class="form-group">
+                        <label>Product *</label>
+                        <select id="modalDSProduct" onchange="loadDSProductSizes()">
+                            <option value="">Select product...</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Size *</label>
+                            <select id="modalDSSize">
+                                <option value="">Select size...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Current Quantity *</label>
+                            <input type="number" id="modalDSQty" min="0" step="1" placeholder="Quantity">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Location *</label>
+                        <select id="modalDSLocation">
+                            ${currentRole === ROLES.OWNER ?
+                                '<option value="bangalore">Bangalore</option><option value="chennai">Chennai</option>' :
+                                '<option value="' + currentLocation + '">' + capitalize(currentLocation) + '</option>'
+                            }
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn-outline" onclick="closeModal()">Cancel</button>
+                        <button class="btn-primary" onclick="saveDailyStock()"><i class="fas fa-save"></i> Save</button>
+                    </div>
+                    <script>
+                        if (typeof loadDSProducts === 'function') loadDSProducts();
+                    </script>
+                `
+            };
+
         case 'addCustomer':
             return {
                 title: '➕ Add Customer',
@@ -631,18 +751,27 @@ function getModalContent(type, data) {
                             <option value="">Select customer...</option>
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label>Invoice No</label>
-                        <input type="text" id="modalOrdInvoice" placeholder="Enter invoice number (manual)">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Invoice No</label>
+                            <input type="text" id="modalOrdInvoice" placeholder="Enter invoice number (manual)">
+                        </div>
+                        <div class="form-group">
+                            <label>Order Date</label>
+                            <input type="date" id="modalOrdDate" value="${getTodayStr()}">
+                        </div>
                     </div>
                     <div class="form-group">
-                        <label>Date</label>
-                        <input type="date" id="modalOrdDate" value="${getTodayStr()}">
+                        <label>Delivery Date</label>
+                        <input type="date" id="modalOrdDeliveryDate" value="${getTodayStr()}">
                     </div>
                     <div id="orderItemsContainer">
-                        <label>Products</label>
-                        <div id="orderProductsList"></div>
+                        <label>Products (From Daily Inventory)</label>
+                        <div id="orderProductsList">
+                            <p class="text-muted">Select a customer first</p>
+                        </div>
                     </div>
+                    <button type="button" class="btn-sm btn-outline mt-2" onclick="addOrderProductRow()" style="margin-bottom:16px"><i class="fas fa-plus"></i> Add Product</button>
                     ${isOwner() ? '<div class="form-group mt-12"><label>Order Total: <strong id="modalOrdTotal">₹0</strong></label></div>' : ''}
                     <div class="form-group">
                         <label>Notes</label>
@@ -744,36 +873,78 @@ function getModalContent(type, data) {
                 html: `
                     <input type="hidden" id="modalPayOrderId" value="${data.orderId || ''}">
                     <input type="hidden" id="modalPayCustomerId" value="${data.customerId || ''}">
+                    <input type="hidden" id="modalPayMax" value="${data.pendingAmount || 0}">
                     <p style="margin-bottom:8px"><strong>${data.customerName || ''}</strong></p>
                     <p style="margin-bottom:4px;color:var(--text-light)">Invoice: <strong>${data.invoiceNo || 'N/A'}</strong></p>
-                    <p style="margin-bottom:16px;color:var(--danger)">Pending: <strong>${formatCurrency(data.pendingAmount || 0)}</strong></p>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Amount Received (₹) *</label>
-                            <input type="number" id="modalPayAmount" min="0" step="0.5" value="${data.pendingAmount || 0}">
+                    <p style="margin-bottom:16px;color:var(--danger)">Pending: <strong id="modalPayPend">${formatCurrency(data.pendingAmount || 0)}</strong></p>
+                    
+                    <div class="form-row" style="margin-bottom:8px">
+                        <div class="form-group" style="flex:1">
+                            <label><i class="fas fa-money-bill-wave"></i> Cash</label>
+                            <input type="number" id="payAmtCash" class="pay-input" min="0" step="0.5" value="0" placeholder="0.00" oninput="calcPayTotal()">
                         </div>
-                        <div class="form-group">
-                            <label>Payment Type *</label>
-                            <select id="modalPayType">
-                                <option value="upi">UPI</option>
-                                <option value="cash">Cash</option>
-                                <option value="bank_transfer">Bank Transfer</option>
-                                <option value="mix">Mix</option>
-                            </select>
+                        <div class="form-group" style="flex:1">
+                            <label><i class="fab fa-google-pay"></i> UPI</label>
+                            <input type="number" id="payAmtUPI" class="pay-input" min="0" step="0.5" value="0" placeholder="0.00" oninput="calcPayTotal()">
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <label><i class="fas fa-university"></i> Bank</label>
+                            <input type="number" id="payAmtBank" class="pay-input" min="0" step="0.5" value="0" placeholder="0.00" oninput="calcPayTotal()">
                         </div>
                     </div>
+
+                    <div style="background:var(--bg-light);padding:12px;border-radius:8px;margin-bottom:16px;display:flex;justify-content:space-between">
+                        <div class="text-muted">Total: <strong id="modalPayTotalSum">₹0</strong></div>
+                        <div id="modalPayRemaining" class="text-danger">Left: <strong>${formatCurrency(data.pendingAmount || 0)}</strong></div>
+                    </div>
+
                     <div class="form-group">
-                        <label>Date</label>
+                        <label>Payment Date</label>
                         <input type="date" id="modalPayDate" value="${getTodayStr()}">
                     </div>
                     <div class="form-group">
                         <label>Notes</label>
-                        <input type="text" id="modalPayNotes" placeholder="e.g., Partial payment, reference no.">
+                        <input type="text" id="modalPayNotes" placeholder="Transaction ref, etc.">
                     </div>
                     <div class="form-actions">
                         <button class="btn-outline" onclick="closeModal()">Cancel</button>
-                        <button class="btn-success" onclick="recordPayment()"><i class="fas fa-check"></i> Record Payment</button>
+                        <button id="btnRecordPay" class="btn-success" onclick="recordPayment()"><i class="fas fa-check"></i> Save Payment</button>
                     </div>
+                    <script>
+                        window.calcPayTotal = function() {
+                            const cashEl = document.getElementById('payAmtCash');
+                            const upiEl = document.getElementById('payAmtUPI');
+                            const bankEl = document.getElementById('payAmtBank');
+                            const max = parseFloat(document.getElementById('modalPayMax').value) || 0;
+                            
+                            const cash = parseFloat(cashEl?.value) || 0;
+                            const upi = parseFloat(upiEl?.value) || 0;
+                            const bank = parseFloat(bankEl?.value) || 0;
+                            const total = cash + upi + bank;
+                            
+                            const totalSumEl = document.getElementById('modalPayTotalSum');
+                            const remEl = document.getElementById('modalPayRemaining');
+                            const btn = document.getElementById('btnRecordPay');
+                            
+                            if (totalSumEl) totalSumEl.textContent = formatCurrency(total);
+                            const remaining = max - total;
+                            
+                            if (remEl) {
+                                if (total > max + 0.1) {
+                                    totalSumEl.style.color = 'var(--danger)';
+                                    remEl.innerHTML = 'Excess: <strong>' + formatCurrency(Math.abs(remaining)) + '</strong>';
+                                    remEl.className = 'text-danger';
+                                    btn.disabled = true;
+                                } else {
+                                    totalSumEl.style.color = '';
+                                    remEl.innerHTML = 'Remaining: <strong>' + formatCurrency(Math.max(0, remaining)) + '</strong>';
+                                    remEl.className = remaining <= 0.1 ? 'text-success' : 'text-primary';
+                                    btn.disabled = total <= 0;
+                                }
+                            }
+                        };
+                        calcPayTotal();
+                    </script>
                 `
             };
 
@@ -857,6 +1028,21 @@ function getModalContent(type, data) {
                     <h4 style="margin-bottom:8px">Current Users</h4>
                     <div id="currentUsersList">Loading...</div>
                     <script>loadCurrentUsers();</script>
+                `
+            };
+
+        case 'confirm':
+            return {
+                title: data.title || 'Confirm',
+                html: `
+                    <div style="text-align:center;padding:10px 0 20px">
+                        <i class="fas fa-exclamation-triangle" style="font-size:3.5rem;color:#f39c12;margin-bottom:20px;display:block"></i>
+                        <p style="font-size:1.1rem;white-space:pre-wrap;color:var(--text-main);line-height:1.6">${data.message || 'Are you sure?'}</p>
+                    </div>
+                    <div class="form-actions" style="justify-content:center;gap:12px;margin-top:10px">
+                        <button class="btn-outline" onclick="handleConfirm(false)" style="flex:1;height:45px">Cancel</button>
+                        <button class="btn-danger" onclick="handleConfirm(true)" style="flex:1;height:45px">Yes, Confirm</button>
+                    </div>
                 `
             };
 
@@ -960,4 +1146,86 @@ async function removeStaffUser(uid, name) {
     }
 }
 
+// ---- Purchase Item Category Loader ----
+window.loadPurItemsByCategory = async function(category) {
+    const itemDropdown = document.getElementById('modalPurItem');
+    if (!itemDropdown || !category) {
+        itemDropdown.innerHTML = '<option value="">Select item...</option>';
+        return;
+    }
+
+    itemDropdown.innerHTML = '<option value="">Loading items...</option>';
+    
+    // Items are under dbRef.stock / [location] / [category]
+    // Since we need items from both locations or global, we fetch based on active location
+    const loc = getActiveLocation();
+    const locations = loc === 'all' ? ['bangalore', 'chennai'] : [loc];
+    
+    let allItems = new Set();
+    
+    for (const location of locations) {
+        const snap = await dbRef.stock.child(`${location}/${category}`).once('value');
+        const items = snap.val() || {};
+        Object.values(items).forEach(i => allItems.add(i.name));
+    }
+    
+    if (allItems.size === 0) {
+        itemDropdown.innerHTML = '<option value="">No items found in this category</option>';
+        return;
+    }
+    
+    itemDropdown.innerHTML = '<option value="">Select item...</option>' + 
+        Array.from(allItems).sort().map(name => `<option value="${name}">${name}</option>`).join('');
+};
+
 console.log('🎮 App controller loaded');
+// ---- Units Management in Settings ----
+window.loadUnitsSetting = async function() {
+    const list = document.getElementById('unitsList');
+    if (!list) return;
+
+    dbRef.units.on('value', snap => {
+        const units = snap.val() || {};
+        if (Object.keys(units).length === 0) {
+            list.innerHTML = '<p class="no-data">No custom units added</p>';
+            return;
+        }
+
+        list.innerHTML = Object.entries(units).map(([id, u]) => `
+            <div class="category-item">
+                <span><i class="fas fa-balance-scale"></i> ${u.name}</span>
+                <button class="btn-icon danger" onclick="deleteUnit('${id}')"><i class="fas fa-trash"></i></button>
+            </div>
+        `).join('');
+    });
+};
+
+window.addUnit = async function() {
+    const nameInput = document.getElementById('newUnitName');
+    const name = nameInput.value.trim();
+    if (!name) return;
+
+    const id = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    await dbRef.units.child(id).set({ name: name });
+    nameInput.value = '';
+    showToast('Unit added!', 'success');
+};
+
+window.deleteUnit = async function(id) {
+    if (!confirm('Delete this unit? Items using it will still show it, but you won\'t be able to select it for new items.')) return;
+    await dbRef.units.child(id).remove();
+    showToast('Unit deleted', 'info');
+};
+
+// Populate units in modals
+window.loadModalUnits = function() {
+    const dropdowns = document.querySelectorAll('.units-dropdown');
+    const units = window.unitsData || {};
+    
+    dropdowns.forEach(dd => {
+        const selected = dd.getAttribute('data-value');
+        dd.innerHTML = Object.entries(units).map(([id, u]) => 
+            `<option value="${u.name}" ${selected === u.name ? 'selected' : ''}>${u.name}</option>`
+        ).join('');
+    });
+};

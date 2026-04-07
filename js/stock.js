@@ -9,7 +9,10 @@ function initStock() {
 async function loadStock(type) {
     const loc = getActiveLocation();
     const locations = loc === 'all' ? ['bangalore', 'chennai'] : [loc];
-    const tbody = type === 'food' ? document.getElementById('stockFoodBody') : document.getElementById('stockNonFoodBody');
+    let tbody;
+    if (type === 'food') tbody = document.getElementById('stockFoodBody');
+    else if (type === 'nonfood') tbody = document.getElementById('stockNonFoodBody');
+    else if (type === 'staff') tbody = document.getElementById('stockStaffBody');
 
     if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="7" class="no-data">Loading...</td></tr>';

@@ -62,6 +62,7 @@ async function loadPayments() {
                         <h3>${o.customerName || 'Unknown'}</h3>
                         <p>Invoice: <strong>${o.invoiceNo || 'N/A'}</strong> · ${formatDate(o.date)}</p>
                         <p>Total: ${formatCurrency(total)} ${paid > 0 ? `· Paid: ${formatCurrency(paid)}` : ''}</p>
+                        ${o.lastPaymentType ? `<p class="text-muted" style="margin-top:4px"><i class="fas fa-wallet"></i> Mode: <span class="status status-partial">${capitalize(o.lastPaymentType).replace('_', ' ')}</span></p>` : ''}
                     </div>
                     <div class="amount">${formatCurrency(pending)}</div>
                     <div class="actions">
@@ -81,6 +82,11 @@ async function loadPayments() {
                         ` : `
                             <span class="status status-settled">✅ Settled</span>
                         `}
+                        ${isOwner() ? `
+                            <button class="btn-danger btn-sm" onclick="voidOrder('${o.id}')" style="margin-left:auto">
+                                <i class="fas fa-trash"></i> Void Order
+                            </button>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -100,10 +106,20 @@ function filterPayments(status, btn) {
 
 async function recordPayment() {
     const orderId = document.getElementById('modalPayOrderId').value;
-    const amount = parseFloat(document.getElementById('modalPayAmount').value) || 0;
-    const payType = document.getElementById('modalPayType').value;
+    const cash = parseFloat(document.getElementById('payAmtCash').value) || 0;
+    const upi = parseFloat(document.getElementById('payAmtUPI').value) || 0;
+    const bank = parseFloat(document.getElementById('payAmtBank').value) || 0;
     const date = document.getElementById('modalPayDate').value;
     const notes = document.getElementById('modalPayNotes').value.trim();
+
+    const amount = cash + upi + bank;
+    
+    // Build payment type string
+    let types = [];
+    if (cash > 0) types.push('cash');
+    if (upi > 0) types.push('upi');
+    if (bank > 0) types.push('bank');
+    const payType = types.map(t => capitalize(t)).join(', ') || 'Cash';
 
     if (amount <= 0) {
         showToast('Please enter a valid amount', 'error');
@@ -111,13 +127,20 @@ async function recordPayment() {
     }
 
     try {
-        // Get current order
+        // Get current order and double check pending amount
         const orderSnap = await dbRef.orders.child(orderId).once('value');
         const order = orderSnap.val();
         if (!order) { showToast('Order not found', 'error'); return; }
 
         const total = parseFloat(order.total) || 0;
         const prevPaid = parseFloat(order.paidAmount) || 0;
+        const currentPending = total - prevPaid;
+
+        if (amount > currentPending + 0.1) {
+            showToast('Amount exceeds pending balance', 'error');
+            return;
+        }
+
         const newPaid = prevPaid + amount;
         const remaining = total - newPaid;
 
@@ -138,7 +161,9 @@ async function recordPayment() {
             customerId: order.customerId,
             customerName: order.customerName,
             invoiceNo: order.invoiceNo,
-            amount, payType, date, notes,
+            amount, payType, 
+            split: { cash, upi, bank },
+            date, notes,
             createdAt: Date.now()
         });
 
@@ -236,12 +261,24 @@ async function loadLedger() {
         // Add payment entries
         Object.entries(payments).forEach(([id, p]) => {
             totalPaid += parseFloat(p.amount) || 0;
+            let payType = p.payType || 'Cash';
+            let payDesc = payType.includes(',') || payType === 'mix' ? 'Split Payment' : payType;
+            
+            if (p.split && (p.split.cash || p.split.upi || p.split.bank)) {
+                let parts = [];
+                if (p.split.cash) parts.push('Cash: ' + p.split.cash);
+                if (p.split.upi) parts.push('UPI: ' + p.split.upi);
+                if (p.split.bank) parts.push('Bank: ' + p.split.bank);
+                payDesc = 'Split (' + parts.join(', ') + ')';
+            } else {
+                payDesc = capitalize(payType);
+            }
             entries.push({
                 date: p.date,
                 invoiceNo: p.invoiceNo || '-',
                 type: 'Payment',
                 amount: -(parseFloat(p.amount) || 0),
-                notes: `${capitalize(p.payType || 'cash')}${p.notes ? ' - ' + p.notes : ''}`
+                notes: `${payDesc}${p.notes ? ' - ' + p.notes : ''}`
             });
         });
 
