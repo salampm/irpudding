@@ -2,6 +2,9 @@
 // IR PUDDING TRACKING - PRODUCTS / INVENTORY
 // ============================================
 
+// Global store for daily stock items (avoids JSON in onclick)
+window._dailyStockItems = {};
+
 function initProducts() {
     console.log('🍨 Products module loaded');
 }
@@ -50,7 +53,7 @@ async function loadProducts() {
                                 <i class="fas fa-flask"></i> Recipe
                             </button>
                         ` : ''}
-                        <button class="btn-icon" title="Edit" onclick='editProduct("${id}", ${JSON.stringify(prod)})'>
+                        <button class="btn-icon" title="Edit" onclick="editProduct('${id}')">
                             <i class="fas fa-edit"></i>
                         </button>
                         <button class="btn-icon danger" title="Delete" onclick="deleteProduct('${id}','${prod.name}')">
@@ -65,6 +68,9 @@ async function loadProducts() {
         console.error('Products error:', e);
     }
 }
+
+// Store products globally for edit reference
+window._productsCache = {};
 
 async function saveProduct() {
     const id = document.getElementById('modalProdId').value;
@@ -105,9 +111,16 @@ async function saveProduct() {
     }
 }
 
-function editProduct(id, prod) {
-    prod.id = id;
-    openModal('addProduct', prod);
+async function editProduct(id) {
+    try {
+        const snap = await dbRef.products.child(id).once('value');
+        const prod = snap.val();
+        if (!prod) { showToast('Product not found', 'error'); return; }
+        prod.id = id;
+        openModal('addProduct', prod);
+    } catch (e) {
+        showToast('Error loading product', 'error');
+    }
 }
 
 // ---- Dynamic Size UI Helpers ----
@@ -155,13 +168,13 @@ window.removeProductSizeRow = function(id) {
 };
 
 async function deleteProduct(id, name) {
-    const confirmed = await confirmAction(`Delete "${name}"? This cannot be undone.`);
+    const confirmed = await confirmAction('Delete "' + name + '"? This cannot be undone.');
     if (!confirmed) return;
 
     try {
         await dbRef.products.child(id).remove();
         await dbRef.recipes.child(id).remove();
-        showToast(`${name} deleted`, 'success');
+        showToast(name + ' deleted', 'success');
         loadProducts();
     } catch (e) {
         showToast('Error deleting product', 'error');
@@ -169,7 +182,6 @@ async function deleteProduct(id, name) {
 }
 
 async function editRecipe(productId, productName) {
-    // Load current recipe and all stock items
     try {
         const [recipeSnap, stockSnap] = await Promise.all([
             dbRef.recipes.child(productId).once('value'),
@@ -179,7 +191,7 @@ async function editRecipe(productId, productName) {
         const recipe = recipeSnap.val() || {};
         const foodItems = stockSnap.val() || {};
 
-        const title = `🧪 Recipe - ${productName}`;
+        const title = '🧪 Recipe - ' + productName;
         const itemRows = Object.entries(foodItems).map(([key, item]) => `
             <div class="form-row" style="margin-bottom:8px">
                 <div class="form-group" style="flex:2;margin-bottom:0">
@@ -187,7 +199,7 @@ async function editRecipe(productId, productName) {
                 </div>
                 <div class="form-group" style="flex:1;margin-bottom:0">
                     <input type="number" class="recipe-input" data-ingredient="${key}"
-                           value="${(recipe[key] && recipe[key].qty_per_480) ? recipe[key].qty_per_480 : ''}"
+                           value="${recipe[key]?.qty_per_480 || ''}"
                            placeholder="for 480 pcs" min="0" step="0.01">
                 </div>
             </div>
@@ -272,7 +284,7 @@ async function loadDSProductSizes() {
                 const opt = document.createElement('option');
                 opt.value = size;
                 opt.dataset.ml = ml;
-                opt.textContent = `${capitalize(size)} (${ml}ml)`;
+                opt.textContent = capitalize(size) + ' (' + ml + 'ml)';
                 select.appendChild(opt);
             });
         }
@@ -282,6 +294,16 @@ async function loadDSProductSizes() {
 // ============================================
 // DAILY INVENTORY (Finished Stock)
 // ============================================
+
+// Helper: Open daily stock modal using stored data (avoids JSON in HTML attributes)
+window.openDailyStockModal = function(type, stockId) {
+    var item = window._dailyStockItems[stockId];
+    if (!item) {
+        showToast('Item data not found. Please refresh.', 'error');
+        return;
+    }
+    openModal(type, item);
+};
 
 async function loadDailyStock() {
     const tableBody = document.getElementById('dailyStockBody');
@@ -312,25 +334,27 @@ async function loadDailyStock() {
         ];
 
         function getRank(name) {
-            if (!name) return 999;
-            const n = name.toLowerCase();
-            for(let i=0; i<sortingOrder.length; i++) {
+            var n = name.toLowerCase();
+            for(var i=0; i<sortingOrder.length; i++) {
                 if (n.includes(sortingOrder[i])) return i;
             }
             return 999;
         }
 
-        let fullList = [];
+        var fullList = [];
+        // Clear the global store
+        window._dailyStockItems = {};
+
         Object.entries(allProducts).forEach(([prodId, prod]) => {
             if (prod.active === false) return;
-            const sizes = prod.sizes || { standard: 0 };
+            var sizes = prod.sizes || { standard: 0 };
             
-            locations.forEach(location => {
+            locations.forEach(function(location) {
                 Object.entries(sizes).forEach(([sizeLabel, ml]) => {
-                    const stockId = `${prodId}_${sizeLabel}_${location}`;
-                    const currentStock = dailyStock[stockId] || null;
+                    var stockId = prodId + '_' + sizeLabel + '_' + location;
+                    var currentStock = dailyStock[stockId] || null;
                     
-                    fullList.push({
+                    var item = {
                         stockId: stockId,
                         productId: prodId,
                         productName: prod.name,
@@ -339,45 +363,49 @@ async function loadDailyStock() {
                         qty: currentStock ? (currentStock.qty || 0) : 0,
                         location: location,
                         updatedAt: currentStock ? (currentStock.updatedAt || 0) : 0
-                    });
+                    };
+
+                    fullList.push(item);
+                    // Store in global map for onclick reference
+                    window._dailyStockItems[stockId] = item;
                 });
             });
         });
 
-        fullList.sort((a, b) => {
-            const rankA = getRank(a.productName || '');
-            const rankB = getRank(b.productName || '');
+        fullList.sort(function(a, b) {
+            var rankA = getRank(a.productName || '');
+            var rankB = getRank(b.productName || '');
             if (rankA !== rankB) return rankA - rankB;
-            const nameComp = (a.productName || '').localeCompare(b.productName || '');
+            var nameComp = (a.productName || '').localeCompare(b.productName || '');
             if (nameComp !== 0) return nameComp;
             return (parseInt(a.ml) || 0) - (parseInt(b.ml) || 0);
         });
 
         console.log('📋 Rendering', fullList.length, 'items');
 
-        // Render to table view — mobile.css handles card transformation!
-        tableBody.innerHTML = fullList.map(s => `
-            <tr>
-                <td data-label="Product">
-                    <strong>${s.productName || 'Unknown'}</strong>
-                    <br><small class="text-muted"><i class="fas fa-map-marker-alt"></i> ${capitalize(s.location)}</small>
-                </td>
-                <td data-label="Size"><span class="size-tag">${capitalize(s.size)} (${s.ml || 0}ml)</span></td>
-                <td data-label="Qty"><strong class="${s.qty === 0 ? 'text-muted' : ''}">${s.qty || 0}</strong></td>
-                <td data-label="Actions">
-                    <div style="display:flex;gap:4px;justify-content:flex-end;width:100%">
-                        <button class="btn-icon" title="Add Quantity" onclick='openModal("addDailyStockQty", ${JSON.stringify(s).replace(/'/g, "&#39;").replace(/"/g, "&quot;")})'>
-                            <i class="fas fa-plus-circle"></i>
-                        </button>
-                        <button class="btn-icon danger" title="Remove / Waste" onclick='openModal("removeDailyStockQty", ${JSON.stringify(s).replace(/'/g, "&#39;").replace(/"/g, "&quot;")})'>
-                            <i class="fas fa-minus-circle"></i>
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `).join('') || '<tr><td colspan="4" class="no-data">No items found</td></tr>';
+        // Render table rows — using global data store instead of inline JSON
+        tableBody.innerHTML = fullList.map(function(s) {
+            return '<tr>' +
+                '<td data-label="Product">' +
+                    '<strong>' + (s.productName || 'Unknown') + '</strong>' +
+                    '<br><small class="text-muted"><i class="fas fa-map-marker-alt"></i> ' + capitalize(s.location) + '</small>' +
+                '</td>' +
+                '<td data-label="Size"><span class="size-tag">' + capitalize(s.size) + ' (' + (s.ml || 0) + 'ml)</span></td>' +
+                '<td data-label="Qty"><strong class="' + (s.qty === 0 ? 'text-muted' : '') + '">' + (s.qty || 0) + '</strong></td>' +
+                '<td data-label="Actions">' +
+                    '<div style="display:flex;gap:4px;justify-content:flex-end;width:100%">' +
+                        '<button class="btn-icon" title="Add Quantity" onclick="openDailyStockModal(\'addDailyStockQty\',\'' + s.stockId + '\')">' +
+                            '<i class="fas fa-plus-circle"></i>' +
+                        '</button>' +
+                        '<button class="btn-icon danger" title="Remove / Waste" onclick="openDailyStockModal(\'removeDailyStockQty\',\'' + s.stockId + '\')">' +
+                            '<i class="fas fa-minus-circle"></i>' +
+                        '</button>' +
+                    '</div>' +
+                '</td>' +
+            '</tr>';
+        }).join('') || '<tr><td colspan="4" class="no-data">No items found</td></tr>';
 
-        console.log('✅ Daily stock rendered explicitly to table container');
+        console.log('✅ Daily stock rendered');
     } catch (e) {
         tableBody.innerHTML = '<tr><td colspan="4" class="no-data">Error loading daily stock</td></tr>';
         console.error('❌ Daily Stock Error:', e);
@@ -385,24 +413,24 @@ async function loadDailyStock() {
 }
 
 async function processDailyStockAdjust(action) {
-    const stockId = document.getElementById('modalAdjStockId').value;
-    const adjQty = parseInt(document.getElementById('modalAdjQty').value) || 0;
-    const adjDate = document.getElementById('modalAdjDate').value || getTodayStr();
+    var stockId = document.getElementById('modalAdjStockId').value;
+    var adjQty = parseInt(document.getElementById('modalAdjQty').value) || 0;
+    var adjDate = document.getElementById('modalAdjDate').value || getTodayStr();
     
     if (adjQty <= 0) {
         showToast('Please enter a valid quantity', 'error');
         return;
     }
 
-    const stockRef = dbRef.dailyStock ? dbRef.dailyStock.child(stockId) : firebase.database().ref('dailyStock').child(stockId);
+    var stockRef = dbRef.dailyStock ? dbRef.dailyStock.child(stockId) : firebase.database().ref('dailyStock').child(stockId);
 
     try {
-        const snap = await stockRef.once('value');
-        const currentData = snap.val() || {};
-        const currentQty = currentData.qty || 0;
+        var snap = await stockRef.once('value');
+        var currentData = snap.val() || {};
+        var currentQty = currentData.qty || 0;
 
-        let newQty = currentQty;
-        let ledgerAction = '';
+        var newQty = currentQty;
+        var ledgerAction = '';
 
         if (action === 'add') {
             newQty = currentQty + adjQty;
@@ -414,41 +442,36 @@ async function processDailyStockAdjust(action) {
                 updatedBy: currentUser.uid
             });
             
-            // 3. Log to Inventory Ledger (Only for additions)
-            const ledgerId = generateId();
-            const elmProdId = document.getElementById('modalAdjProdId');
-            const elmProdName = document.getElementById('modalAdjProdName');
-            const elmSize = document.getElementById('modalAdjSize');
-            const elmLoc = document.getElementById('modalAdjLocation');
-
+            // Log to Inventory Ledger
+            var ledgerId = generateId();
             await dbRef.inventoryLedger.child(ledgerId).set({
-                productId: currentData.productId || (elmProdId ? elmProdId.value : ''),
-                productName: currentData.productName || (elmProdName ? elmProdName.value : ''),
-                size: currentData.size || (elmSize ? elmSize.value : ''),
+                productId: currentData.productId || document.getElementById('modalAdjProdId')?.value,
+                productName: currentData.productName || document.getElementById('modalAdjProdName')?.value,
+                size: currentData.size || document.getElementById('modalAdjSize')?.value,
                 action: ledgerAction,
                 qty: adjQty,
-                location: currentData.location || (elmLoc ? elmLoc.value : ''),
+                location: currentData.location || document.getElementById('modalAdjLocation')?.value,
                 date: adjDate,
                 timestamp: Date.now(),
                 by: currentUser.name
             });
 
-            showToast(`Added ${adjQty} to stock`, 'success');
+            showToast('Added ' + adjQty + ' to stock', 'success');
         } else {
-            const reason = document.getElementById('modalAdjReason').value;
-            const notes = document.getElementById('modalAdjNotes').value;
+            var reason = document.getElementById('modalAdjReason').value;
+            var notes = document.getElementById('modalAdjNotes').value;
             newQty = Math.max(0, currentQty - adjQty);
-            ledgerAction = `Removed (${reason})`;
+            ledgerAction = 'Removed (' + reason + ')';
 
-            // 1. Update Inventory
+            // Update Inventory
             await stockRef.update({
                 qty: newQty,
                 updatedAt: Date.now(),
                 updatedBy: currentUser.uid
             });
 
-            // 2. Log to Wastage (if it's wastage)
-            const wastageId = generateId();
+            // Log to Wastage
+            var wastageId = generateId();
             await dbRef.wastage.child(wastageId).set({
                 productId: document.getElementById('modalAdjProdId').value,
                 productName: document.getElementById('modalAdjProdName').value,
@@ -456,20 +479,20 @@ async function processDailyStockAdjust(action) {
                 ml: document.getElementById('modalAdjMl').value,
                 location: document.getElementById('modalAdjLocation').value,
                 qty: adjQty,
-                reason,
-                notes,
+                reason: reason,
+                notes: notes,
                 timestamp: Date.now(),
                 date: adjDate,
                 loggedBy: currentUser.uid
             });
 
-            showToast(`Removed ${adjQty} and logged as wastage`, 'info');
+            showToast('Removed ' + adjQty + ' and logged as wastage', 'info');
         }
 
         closeModal();
         loadDailyStock();
-        loadWastage();
-        loadInventoryLedger();
+        if (typeof loadWastage === 'function') loadWastage();
+        if (typeof loadInventoryLedger === 'function') loadInventoryLedger();
     } catch (e) {
         showToast('Error adjusting stock', 'error');
         console.error(e);
@@ -477,47 +500,46 @@ async function processDailyStockAdjust(action) {
 }
 
 async function saveDailyStock() {
-    const prodSelect = document.getElementById('modalDSProduct');
-    const sizeSelect = document.getElementById('modalDSSize');
-    const adjDate = document.getElementById('modalDSDate').value || getTodayStr();
+    var prodSelect = document.getElementById('modalDSProduct');
+    var sizeSelect = document.getElementById('modalDSSize');
+    var adjDate = document.getElementById('modalDSDate').value || getTodayStr();
 
-    const productId = prodSelect.value;
-    const productName = prodSelect.options[prodSelect.selectedIndex] ? prodSelect.options[prodSelect.selectedIndex].textContent : '';
-    const size = sizeSelect.value;
-    const sizeOpt = sizeSelect.options[sizeSelect.selectedIndex];
-    const ml = (sizeOpt && sizeOpt.dataset) ? sizeOpt.dataset.ml : 0;
-    const qty = parseInt(document.getElementById('modalDSQty').value) || 0;
-    const location = document.getElementById('modalDSLocation').value;
+    var productId = prodSelect.value;
+    var productName = prodSelect.options[prodSelect.selectedIndex]?.textContent;
+    var size = sizeSelect.value;
+    var ml = sizeSelect.options[sizeSelect.selectedIndex]?.dataset?.ml || 0;
+    var qty = parseInt(document.getElementById('modalDSQty').value) || 0;
+    var location = document.getElementById('modalDSLocation').value;
     
     if (!productId || !size) {
         showToast('Please select a product and size', 'error');
         return;
     }
     
-    const stockId = productId + '_' + size + '_' + location;
+    var stockId = productId + '_' + size + '_' + location;
     
     try {
-        const stockRef = dbRef.dailyStock ? dbRef.dailyStock.child(stockId) : firebase.database().ref('dailyStock').child(stockId);
+        var stockRef = dbRef.dailyStock ? dbRef.dailyStock.child(stockId) : firebase.database().ref('dailyStock').child(stockId);
         await stockRef.update({
-            productId,
-            productName,
-            size,
+            productId: productId,
+            productName: productName,
+            size: size,
             ml: parseInt(ml),
-            qty,
-            location,
+            qty: qty,
+            location: location,
             updatedAt: Date.now(),
             updatedBy: currentUser.uid
         });
 
         // Log to Ledger
-        const ledgerId = generateId();
+        var ledgerId = generateId();
         await dbRef.inventoryLedger.child(ledgerId).set({
-            productId,
-            productName,
-            size,
+            productId: productId,
+            productName: productName,
+            size: size,
             action: 'Manual Initial/Reset',
-            qty,
-            location,
+            qty: qty,
+            location: location,
             date: adjDate,
             timestamp: Date.now(),
             by: currentUser.name
@@ -526,7 +548,7 @@ async function saveDailyStock() {
         closeModal();
         showToast('Daily inventory updated!', 'success');
         loadDailyStock();
-        loadInventoryLedger();
+        if (typeof loadInventoryLedger === 'function') loadInventoryLedger();
     } catch (e) {
         showToast('Error saving inventory', 'error');
         console.error(e);
@@ -534,24 +556,24 @@ async function saveDailyStock() {
 }
 
 async function loadInventoryLedger() {
-    const body = document.getElementById('inventoryLedgerBody');
+    var body = document.getElementById('inventoryLedgerBody');
     if (!body) return;
 
-    const filterLoc = document.getElementById('invLedgerLocation').value;
-    const dateFromEl = document.getElementById('invLedgerDate');
-    const dateToEl = document.getElementById('invLedgerDateTo');
+    var filterLoc = document.getElementById('invLedgerLocation').value;
+    var dateFromEl = document.getElementById('invLedgerDate');
+    var dateToEl = document.getElementById('invLedgerDateTo');
     
-    const dateFrom = dateFromEl.value;
-    const dateTo = dateToEl.style.display !== 'none' ? dateToEl.value : dateFrom;
+    var dateFrom = dateFromEl.value;
+    var dateTo = dateToEl.style.display !== 'none' ? dateToEl.value : dateFrom;
 
     try {
-        const snap = await dbRef.inventoryLedger.once('value');
-        const logs = snap.val() || {};
+        var snap = await dbRef.inventoryLedger.once('value');
+        var logs = snap.val() || {};
 
-        const filtered = Object.values(logs)
-            .filter(l => {
-                const locMatch = filterLoc === 'all' || l.location === filterLoc;
-                let dateMatch = true;
+        var filtered = Object.values(logs)
+            .filter(function(l) {
+                var locMatch = filterLoc === 'all' || l.location === filterLoc;
+                var dateMatch = true;
                 if (dateToEl.style.display === 'none') {
                     dateMatch = !dateFrom || l.date === dateFrom;
                 } else {
@@ -559,35 +581,28 @@ async function loadInventoryLedger() {
                 }
                 return locMatch && dateMatch;
             })
-            .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            .sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
 
         if (filtered.length === 0) {
             body.innerHTML = '<tr><td colspan="7" class="no-data">No logs found for selected filters</td></tr>';
             return;
         }
 
-        body.innerHTML = filtered.map(l => {
-            const rowId = Object.keys(logs).find(key => logs[key].timestamp === l.timestamp && logs[key].productId === l.productId);
-            return `
-                <tr>
-                    <td>
-                        ${l.date}<br>
-                        <small class="text-light">${new Date(l.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</small>
-                    </td>
-                    <td><strong>${l.productName}</strong><br><small>${capitalize(l.size)}</small></td>
-                    <td><span class="status ${l.action.includes('Removed') ? 'status-critical' : 'status-ok'}">${l.action}</span></td>
-                    <td>${l.qty}</td>
-                    <td>${capitalize(l.location)}</td>
-                    <td>${l.by || 'System'}</td>
-                    <td>
-                        ${isOwner() ? `
-                            <button class="btn-icon danger" onclick="deleteInventoryLedgerEntry('${rowId}')" title="Delete Permanent">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        ` : '-'}
-                    </td>
-                </tr>
-            `;
+        body.innerHTML = filtered.map(function(l) {
+            var rowId = Object.keys(logs).find(function(key) { return logs[key].timestamp === l.timestamp && logs[key].productId === l.productId; });
+            return '<tr>' +
+                '<td>' + l.date + '<br><small class="text-light">' + new Date(l.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + '</small></td>' +
+                '<td><strong>' + l.productName + '</strong><br><small>' + capitalize(l.size) + '</small></td>' +
+                '<td><span class="status ' + (l.action.includes('Removed') ? 'status-critical' : 'status-ok') + '">' + l.action + '</span></td>' +
+                '<td>' + l.qty + '</td>' +
+                '<td>' + capitalize(l.location) + '</td>' +
+                '<td>' + (l.by || 'System') + '</td>' +
+                '<td>' +
+                    (isOwner() ?
+                        '<button class="btn-icon danger" onclick="deleteInventoryLedgerEntry(\'' + rowId + '\')" title="Delete"><i class="fas fa-trash"></i></button>'
+                    : '-') +
+                '</td>' +
+            '</tr>';
         }).join('');
         
         // Store for export
@@ -601,7 +616,7 @@ async function loadInventoryLedger() {
 async function deleteInventoryLedgerEntry(ledgerId) {
     if (!isOwner()) return;
     
-    const confirmDelete = await confirmAction('Are you sure you want to PERMANENTLY delete this ledger record? This cannot be undone.');
+    var confirmDelete = await confirmAction('Are you sure you want to PERMANENTLY delete this ledger record? This cannot be undone.');
     if (!confirmDelete) return;
 
     try {
@@ -614,12 +629,12 @@ async function deleteInventoryLedgerEntry(ledgerId) {
 }
 
 window.switchLedgerRange = function(range, btn) {
-    document.querySelectorAll('.ledger-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.ledger-tab').forEach(function(b) { b.classList.remove('active'); });
     btn.classList.add('active');
 
-    const dateFrom = document.getElementById('invLedgerDate');
-    const dateTo = document.getElementById('invLedgerDateTo');
-    const today = getTodayStr();
+    var dateFrom = document.getElementById('invLedgerDate');
+    var dateTo = document.getElementById('invLedgerDateTo');
+    var today = getTodayStr();
 
     dateFrom.style.display = '';
     dateTo.style.display = 'none';
@@ -627,15 +642,15 @@ window.switchLedgerRange = function(range, btn) {
     if (range === 'daily') {
         dateFrom.value = today;
     } else if (range === 'weekly') {
-        const d = new Date();
+        var d = new Date();
         d.setDate(d.getDate() - 7);
         dateFrom.value = d.toISOString().split('T')[0];
         dateTo.style.display = '';
         dateTo.value = today;
     } else if (range === 'monthly') {
-        const d = new Date();
-        d.setMonth(d.getMonth() - 1);
-        dateFrom.value = d.toISOString().split('T')[0];
+        var d2 = new Date();
+        d2.setMonth(d2.getMonth() - 1);
+        dateFrom.value = d2.toISOString().split('T')[0];
         dateTo.style.display = '';
         dateTo.value = today;
     } else if (range === 'custom') {
@@ -651,20 +666,22 @@ window.exportInventoryLedger = function() {
         return;
     }
 
-    const rows = window.lastLedgerData.map(l => ({
-        'Date': l.date,
-        'Time': new Date(l.timestamp).toLocaleTimeString(),
-        'Product': l.productName,
-        'Size': l.size,
-        'Action': l.action,
-        'Qty': l.qty,
-        'Location': l.location,
-        'Logged By': l.by
-    }));
+    var rows = window.lastLedgerData.map(function(l) {
+        return {
+            'Date': l.date,
+            'Time': new Date(l.timestamp).toLocaleTimeString(),
+            'Product': l.productName,
+            'Size': l.size,
+            'Action': l.action,
+            'Qty': l.qty,
+            'Location': l.location,
+            'Logged By': l.by
+        };
+    });
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
+    var ws = XLSX.utils.json_to_sheet(rows);
+    var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Inventory_Ledger');
-    XLSX.writeFile(wb, `Inventory_Ledger_${getTodayStr()}.xlsx`);
+    XLSX.writeFile(wb, 'Inventory_Ledger_' + getTodayStr() + '.xlsx');
     showToast('Ledger exported!', 'success');
 };
