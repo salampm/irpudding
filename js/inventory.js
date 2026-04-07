@@ -352,18 +352,37 @@ async function loadDailyStock() {
             return (parseInt(a.ml) || 0) - (parseInt(b.ml) || 0);
         });
 
-        const isMobile = window.innerWidth <= 768;
-        console.log('📱 Device Mode:', isMobile ? 'Mobile' : 'Desktop');
+        console.log('📋 Rendering', fullList.length, 'items');
 
-        if (isMobile && gridContainer && tableContainer) {
-            tableContainer.style.display = 'none';
-            gridContainer.style.display = 'grid';
+        // Always render BOTH views — CSS decides which is visible
+        tableBody.innerHTML = fullList.map(s => `
+            <tr>
+                <td>
+                    <strong>${s.productName || 'Unknown'}</strong>
+                    <br><small class="text-muted"><i class="fas fa-map-marker-alt"></i> ${capitalize(s.location)}</small>
+                </td>
+                <td><span class="size-tag">${capitalize(s.size)} (${s.ml || 0}ml)</span></td>
+                <td><strong class="${s.qty === 0 ? 'text-muted' : ''}">${s.qty || 0}</strong></td>
+                <td>
+                    <div style="display:flex;gap:4px">
+                        <button class="btn-icon" title="Add Quantity" onclick='openModal("addDailyStockQty", ${JSON.stringify(s).replace(/"/g, '&quot;')})'>
+                            <i class="fas fa-plus-circle"></i>
+                        </button>
+                        <button class="btn-icon danger" title="Remove / Waste" onclick='openModal("removeDailyStockQty", ${JSON.stringify(s).replace(/"/g, '&quot;')})'>
+                            <i class="fas fa-minus-circle"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('') || '<tr><td colspan="4" class="no-data">No items found</td></tr>';
+
+        if (gridContainer) {
             gridContainer.innerHTML = fullList.map(s => `
                 <div class="stock-card">
                     <div class="stock-card-header">
                         <div>
-                            <h3>${s.productName || 'Unknown Product'}</h3>
-                            <div class="loc">${capitalize(s.location)} - ${capitalize(s.size)} (${s.ml || 0}ml)</div>
+                            <h3>${s.productName || 'Unknown'}</h3>
+                            <div class="loc">${capitalize(s.location)} · ${capitalize(s.size)} (${s.ml || 0}ml)</div>
                         </div>
                         <span class="status ${s.qty === 0 ? 'status-critical' : 'status-ok'}">
                             ${s.qty === 0 ? 'Out' : 'In Stock'}
@@ -385,34 +404,13 @@ async function loadDailyStock() {
                     </div>
                 </div>
             `).join('') || '<p class="no-data">No items found</p>';
-        } else {
-            if (tableContainer) tableContainer.style.display = 'block';
-            if (gridContainer) gridContainer.style.display = 'none';
-            tableBody.innerHTML = fullList.map(s => `
-                <tr>
-                    <td>
-                        <strong>${s.productName || 'Unknown Product'}</strong>
-                        <br><small class="text-muted"><i class="fas fa-map-marker-alt"></i> ${capitalize(s.location)}</small>
-                    </td>
-                    <td><span class="size-tag">${capitalize(s.size)} (${s.ml || 0}ml)</span></td>
-                    <td><strong class="${s.qty === 0 ? 'text-muted' : ''}">${s.qty || 0}</strong></td>
-                    <td>
-                        <div style="display:flex;gap:4px">
-                            <button class="btn-icon" title="Add Quantity" onclick='openModal("addDailyStockQty", ${JSON.stringify(s).replace(/"/g, '&quot;')})'>
-                                <i class="fas fa-plus-circle"></i>
-                            </button>
-                            <button class="btn-icon danger" title="Remove / Waste" onclick='openModal("removeDailyStockQty", ${JSON.stringify(s).replace(/"/g, '&quot;')})'>
-                                <i class="fas fa-minus-circle"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `).join('') || '<tr><td colspan="4" class="no-data">No items found</td></tr>';
         }
-        console.log('✅ Daily stock loading complete');
+
+        console.log('✅ Daily stock rendered to both views');
     } catch (e) {
         tableBody.innerHTML = '<tr><td colspan="4" class="no-data">Error loading daily stock</td></tr>';
-        console.error('❌ Daily Stock Load Failure:', e);
+        if (gridContainer) gridContainer.innerHTML = '<p class="no-data">Error loading inventory</p>';
+        console.error('❌ Daily Stock Error:', e);
     }
 }
 

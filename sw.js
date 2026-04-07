@@ -1,5 +1,5 @@
-const cacheName = 'ir-pudding-v1.6';
-const assets = [
+const CACHE_VERSION = 'ir-pudding-v1.7';
+const ASSETS = [
   './',
   './index.html',
   './css/style.css',
@@ -27,32 +27,47 @@ const assets = [
   'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
 ];
 
-// Install Service Worker
+// Install — cache assets & activate immediately
 self.addEventListener('install', e => {
+  self.skipWaiting(); // Don't wait for old tabs to close
   e.waitUntil(
-    caches.open(cacheName).then(cache => {
-      cache.addAll(assets);
-    })
+    caches.open(CACHE_VERSION).then(cache => cache.addAll(ASSETS))
   );
 });
 
-// Activate Service Worker
+// Activate — delete old caches & take control immediately
 self.addEventListener('activate', e => {
+  self.clients.claim(); // Take control of all tabs now
   e.waitUntil(
-    caches.keys().then(keys => {
-      return Promise.all(keys
-        .filter(key => key !== cacheName)
+    caches.keys().then(keys =>
+      Promise.all(keys
+        .filter(key => key !== CACHE_VERSION)
         .map(key => caches.delete(key))
-      );
-    })
+      )
+    )
   );
 });
 
-// Fetch Assets
+// Fetch — Network First for app files, Cache First for CDN
 self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
+
+  // CDN/external resources: Cache First (they never change)
+  if (url.origin !== location.origin) {
+    e.respondWith(
+      caches.match(e.request).then(cached => cached || fetch(e.request))
+    );
+    return;
+  }
+
+  // App files: Network First (always get latest, fallback to cache offline)
   e.respondWith(
-    caches.match(e.request).then(cacheRes => {
-      return cacheRes || fetch(e.request);
-    })
+    fetch(e.request)
+      .then(response => {
+        const clone = response.clone();
+        caches.open(CACHE_VERSION).then(cache => cache.put(e.request, clone));
+        return response;
+      })
+      .catch(() => caches.match(e.request))
   );
 });

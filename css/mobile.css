@@ -1,6 +1,11 @@
 /* ============================================
-   IR PUDDING TRACKING - MOBILE RESPONSIVE
+   IR PUDDING TRACKING - MOBILE RESPONSIVE V1.7
    ============================================ */
+
+/* --- Hide mobile-only grid on desktop --- */
+.daily-stock-grid {
+    display: none;
+}
 
 /* ---- Tablet (<=1024px) ---- */
 @media (max-width: 1024px) {
@@ -30,6 +35,12 @@
 
     html { font-size: 13px; }
 
+    /* Prevent horizontal overflow globally */
+    body, .main-content, .tab-content {
+        max-width: 100vw;
+        overflow-x: hidden;
+    }
+
     /* Header */
     .app-header {
         left: 0;
@@ -58,7 +69,7 @@
     /* Main Content */
     .main-content {
         margin-left: 0;
-        padding: 16px;
+        padding: 12px;
     }
 
     /* Location Switcher */
@@ -90,16 +101,26 @@
     /* Buttons */
     .btn-primary, .btn-secondary { padding: 8px 14px; font-size: 0.8rem; }
 
-    /* Tables - responsive or scroll */
+    /* =========================================
+       TABLES - Responsive
+       ========================================= */
     .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    
-    .data-table { min-width: 0; width: 100%; table-layout: auto; }
-    #dailyStockTable { min-width: 0; width: 100%; }
 
+    .data-table { min-width: 0; width: 100%; table-layout: auto; }
+
+    .data-table thead th { padding: 10px 8px; font-size: 0.72rem; }
+    .data-table tbody td { padding: 10px 8px; font-size: 0.82rem; }
+
+    /* =========================================
+       DAILY INVENTORY - Mobile Card Grid
+       ========================================= */
+    /* Hide table, show cards */
+    #dailyStockContainer { display: none !important; }
+    
     .daily-stock-grid {
-        display: grid;
+        display: grid !important;
         grid-template-columns: 1fr;
-        gap: 16px;
+        gap: 12px;
         padding-bottom: 24px;
     }
 
@@ -107,58 +128,135 @@
         background: var(--bg-card);
         border: 1px solid var(--border);
         border-radius: var(--radius);
-        padding: 16px;
+        padding: 14px;
         box-shadow: var(--shadow-sm);
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 10px;
     }
 
     .stock-card-header {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        border-bottom: 1px solid var(--border-light);
-        padding-bottom: 8px;
     }
 
-    .stock-card-header h3 { font-size: 1.1rem; color: var(--secondary); margin: 0; }
-    .stock-card-header .loc { font-size: 0.72rem; color: var(--text-muted); }
+    .stock-card-header h3 {
+        font-size: 1rem;
+        color: var(--secondary);
+        margin: 0;
+        font-weight: 600;
+    }
+
+    .stock-card-header .loc {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-top: 2px;
+    }
 
     .stock-card-body {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        border-top: 1px solid var(--border-light);
+        padding-top: 10px;
     }
 
-    .stock-card-qty { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
-    .stock-card-unit { font-size: 0.85rem; color: var(--text-light); }
+    .stock-card-qty {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: var(--primary);
+    }
+
+    .stock-card-unit {
+        font-size: 0.78rem;
+        color: var(--text-light);
+    }
 
     .stock-card-actions {
         display: flex;
-        gap: 8px;
+        gap: 10px;
     }
 
     .stock-card-actions .btn-icon {
-        flex: 1;
+        width: 44px;
+        height: 44px;
+        display: flex;
+        align-items: center;
         justify-content: center;
-        height: 48px;
         border: 1px solid var(--border);
         border-radius: var(--radius-sm);
-        background: white;
+        background: var(--bg);
+        font-size: 1.1rem;
     }
 
-    .data-table thead th { padding: 10px 12px; font-size: 0.72rem; }
-    .data-table tbody td { padding: 10px 12px; font-size: 0.82rem; }
+    .stock-card-actions .btn-icon.danger {
+        color: var(--danger);
+        border-color: var(--danger-light);
+        background: var(--danger-light);
+    }
 
-    /* Search Bar */
+    /* =========================================
+       SETTINGS - Sub-Tabs (Scrollable Pills)
+       ========================================= */
+    .sub-tabs {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 8px;
+        margin-bottom: 16px;
+        border-bottom: none;
+        flex-wrap: wrap;
+    }
+
+    .sub-tab {
+        padding: 8px 14px;
+        font-size: 0.78rem;
+        white-space: nowrap;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        color: var(--text-light);
+        min-height: 36px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .sub-tab.active {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+    }
+
+    .sub-tab.active::after {
+        display: none; /* Remove underline on mobile, using pill style */
+    }
+
+    .sub-tab i {
+        font-size: 0.85rem;
+    }
+
+    .settings-card {
+        padding: 16px;
+    }
+
+    .settings-card h3 {
+        font-size: 1rem;
+    }
+
+    /* =========================================
+       SEARCH & FILTER BARS
+       ========================================= */
     .search-bar { max-width: 100%; }
 
-    /* Filter Bar */
     .filter-bar { flex-direction: column; }
     .filter-bar input, .filter-bar select { width: 100%; min-width: 0; }
 
-    /* Orders */
+    /* =========================================
+       ORDERS
+       ========================================= */
     .order-filters { flex-direction: column; align-items: stretch; }
     .status-tabs { width: 100%; }
     .status-tab { flex: 1; justify-content: center; font-size: 0.8rem; padding: 8px; }
@@ -166,7 +264,9 @@
     .order-card { padding: 14px; }
     .order-card-header h3 { font-size: 0.9rem; }
 
-    /* Payments */
+    /* =========================================
+       PAYMENTS
+       ========================================= */
     .payment-tabs { width: 100%; }
     .pay-tab { flex: 1; justify-content: center; padding: 8px 12px; font-size: 0.8rem; }
 
@@ -178,32 +278,46 @@
     .payment-card .actions { width: 100%; }
     .payment-card .actions button { flex: 1; justify-content: center; }
 
-    /* Ledger */
+    /* =========================================
+       LEDGER
+       ========================================= */
     .ledger-filters { flex-direction: column; }
     .ledger-filters select, .ledger-filters input { width: 100%; min-width: 0; }
 
     .ledger-summary { flex-direction: column; }
     .ledger-card { min-width: 0; }
 
-    /* Staff Grid */
-    .staff-grid { grid-template-columns: 1fr; }
+    /* Inventory Ledger tabs */
+    .ledger-tab, .report-tab {
+        padding: 8px 14px;
+        font-size: 0.78rem;
+    }
 
-    /* Products Grid */
+    /* =========================================
+       STAFF & PRODUCTS GRID
+       ========================================= */
+    .staff-grid { grid-template-columns: 1fr; }
     .products-grid { grid-template-columns: 1fr; }
 
-    /* Reports */
+    /* =========================================
+       REPORTS
+       ========================================= */
     .reports-tabs { width: 100%; overflow-x: auto; }
     .report-tab { white-space: nowrap; }
     .report-filters { flex-direction: column; }
     .report-filters input { width: 100%; }
 
-    /* Settings */
+    /* =========================================
+       SETTINGS GRID
+       ========================================= */
     .settings-grid { grid-template-columns: 1fr; }
 
     .template-actions { flex-direction: column; }
     .template-actions button { width: 100%; justify-content: center; }
 
-    /* Modal */
+    /* =========================================
+       MODAL (Bottom Sheet Style)
+       ========================================= */
     .modal {
         max-width: 100%;
         max-height: 95vh;
@@ -218,7 +332,9 @@
 
     .form-row { flex-direction: column; gap: 0; }
 
-    /* Toast */
+    /* =========================================
+       TOAST
+       ========================================= */
     .toast {
         left: 16px;
         right: 16px;
@@ -226,7 +342,9 @@
         max-width: 100%;
     }
 
-    /* Dashboard Charts */
+    /* =========================================
+       DASHBOARD
+       ========================================= */
     .dashboard-charts { grid-template-columns: 1fr; }
     .chart-card { padding: 14px; }
 }
@@ -245,4 +363,14 @@
 
     .location-switcher { flex-direction: column; }
     .loc-btn { width: 100%; }
+
+    /* Settings tabs wrap on tiny screens */
+    .sub-tabs {
+        gap: 4px;
+    }
+
+    .sub-tab {
+        padding: 6px 10px;
+        font-size: 0.72rem;
+    }
 }
