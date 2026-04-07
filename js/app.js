@@ -267,6 +267,9 @@ function switchLocation(location, btn) {
 
 // ---- Modal Content Generator ----
 function getModalContent(type, data) {
+    // Safety: if data is undefined, set to empty object to prevent crashes
+    if (!data) data = {};
+    
     switch (type) {
         case 'addStockFood':
             return {

@@ -297,11 +297,17 @@ async function loadDSProductSizes() {
 
 // Helper: Open daily stock modal using stored data (avoids JSON in HTML attributes)
 window.openDailyStockModal = function(type, stockId) {
-    var item = window._dailyStockItems[stockId];
+    console.log('openDailyStockModal called:', type, stockId);
+    console.log('Available items:', Object.keys(window._dailyStockItems || {}).length);
+    
+    var item = window._dailyStockItems ? window._dailyStockItems[stockId] : null;
     if (!item) {
-        showToast('Item data not found. Please refresh.', 'error');
+        console.error('Item not found for stockId:', stockId);
+        console.error('Available stockIds:', Object.keys(window._dailyStockItems || {}));
+        showToast('Item data not found. Please refresh the page.', 'error');
         return;
     }
+    console.log('Opening modal with data:', JSON.stringify(item));
     openModal(type, item);
 };
 
@@ -313,23 +319,22 @@ async function loadDailyStock() {
     if (!tableBody) return;
 
     console.log('🔄 Loading daily stock...');
-    const loc = getActiveLocation();
-    const locations = loc === 'all' ? ['bangalore', 'chennai'] : [loc];
+    var loc = getActiveLocation();
+    var locations = loc === 'all' ? ['bangalore', 'chennai'] : [loc];
     
     tableBody.innerHTML = '<tr><td colspan="4" class="no-data">Loading inventory...</td></tr>';
     if (gridContainer) gridContainer.innerHTML = '<p class="no-data">Loading inventory...</p>';
 
     try {
-        const [prodSnap, stockSnap] = await Promise.all([
-            dbRef.products.once('value'),
-            dbRef.dailyStock ? dbRef.dailyStock.once('value') : firebase.database().ref('dailyStock').once('value')
-        ]);
+        var prodSnap = await dbRef.products.once('value');
+        var stockRefObj = dbRef.dailyStock ? dbRef.dailyStock : firebase.database().ref('dailyStock');
+        var stockSnap = await stockRefObj.once('value');
         
         console.log('📦 Daily stock data received');
-        const allProducts = prodSnap.val() || {};
-        const dailyStock = stockSnap.val() || {};
+        var allProducts = prodSnap.val() || {};
+        var dailyStock = stockSnap.val() || {};
         
-        const sortingOrder = [
+        var sortingOrder = [
             'tender coconut', 'mango', 'custard apple', 'mysore pak', 'caramel'
         ];
 
@@ -373,6 +378,8 @@ async function loadDailyStock() {
             });
         });
 
+        console.log('Daily stock items stored:', Object.keys(window._dailyStockItems).length);
+        
         fullList.sort(function(a, b) {
             var rankA = getRank(a.productName || '');
             var rankB = getRank(b.productName || '');
@@ -384,7 +391,7 @@ async function loadDailyStock() {
 
         console.log('📋 Rendering', fullList.length, 'items');
 
-        // Render table rows — using global data store instead of inline JSON
+        // Render table rows (Laptop)
         tableBody.innerHTML = fullList.map(function(s) {
             try {
                 return '<tr>' +
@@ -407,6 +414,31 @@ async function loadDailyStock() {
                 '</tr>';
             } catch(err) { return ''; }
         }).join('') || '<tr><td colspan="4" class="no-data">No items found</td></tr>';
+
+        // Render card grid (Mobile - Staff Style)
+        if (gridContainer) {
+            gridContainer.innerHTML = fullList.map(function(s) {
+                try {
+                    return '<div class="staff-card">' +
+                        '<div class="staff-card-header">' +
+                            '<div class="staff-avatar" style="background:var(--primary-light); color:var(--primary)">' + (s.productName || 'P').charAt(0).toUpperCase() + '</div>' +
+                            '<div>' +
+                                '<h3>' + (s.productName || 'Unknown') + '</h3>' +
+                                '<small><i class="fas fa-map-marker-alt"></i> ' + capitalize(s.location || '') + '</small>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="staff-details">' +
+                            '<div><span>Size:</span> <strong>' + capitalize(s.size || '') + ' (' + (s.ml || 0) + 'ml)</strong></div>' +
+                            '<div><span>Quantity:</span> <strong style="font-size:1.1rem; color:var(--primary)">' + (s.qty || 0) + '</strong></div>' +
+                        '</div>' +
+                        '<div class="actions" style="margin-top:12px; gap:8px">' +
+                            '<button class="btn-sm btn-outline" style="flex:1" onclick="openDailyStockModal(\'addDailyStockQty\',\'' + s.stockId + '\')"><i class="fas fa-plus"></i> Add</button>' +
+                            '<button class="btn-sm btn-outline danger" style="flex:1" onclick="openDailyStockModal(\'removeDailyStockQty\',\'' + s.stockId + '\')"><i class="fas fa-minus"></i> Waste</button>' +
+                        '</div>' +
+                    '</div>';
+                } catch(e) { return ''; }
+            }).join('') || '<p class="no-data">No items found</p>';
+        }
 
         console.log('✅ Daily stock rendered');
     } catch (e) {

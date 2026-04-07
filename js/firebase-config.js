@@ -37,9 +37,9 @@ const dbRef = {
     settings: db.ref('settings'),
     expenseCategories: db.ref('expense_categories'),
     dailyStock: db.ref('dailyStock'),
-    units: db.ref('units'),
+    inventoryLedger: db.ref('inventoryLedger'),
     wastage: db.ref('wastage'),
-    inventoryLedger: db.ref('inventory_ledger')
+    units: db.ref('units')
 };
 
 console.log('🍮 IR Pudding Firebase initialized');
