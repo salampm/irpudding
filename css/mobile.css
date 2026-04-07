@@ -153,33 +153,42 @@
         display: none !important;
     }
 
-    /* All other cells become stacked Detail Rows (Staff Style) */
+    /* All other cells become Detail Rows (Staff Style - Space Between) */
     .data-table td {
-        padding: 12px 0 0 0 !important;
+        padding: 10px 0 !important;
         border: none !important;
-        text-align: left !important;
+        border-bottom: 1px solid var(--border-light) !important;
+        text-align: right !important;
         min-height: auto !important;
         font-size: 0.9rem !important;
         display: flex !important;
-        flex-direction: column !important;
-        gap: 2px !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        gap: 12px !important;
     }
-    /* Staff-style detail labels */
+    .data-table td:last-child {
+        border-bottom: none !important;
+    }
+    /* Staff-style detail labels (Left side) */
     .data-table td::before {
         content: attr(data-label);
         display: block !important;
-        font-size: 0.65rem !important;
+        font-size: 0.72rem !important;
         font-weight: 700 !important;
         color: var(--text-muted) !important;
         text-transform: uppercase !important;
         letter-spacing: 0.5px !important;
         line-height: 1 !important;
+        text-align: left !important;
+        flex: 0 0 auto !important;
+        max-width: 40% !important;
     }
     
-    /* Remove default alignment for the content inside TD */
+    /* Value content (Right side) */
     .data-table td > * {
         display: inline-block !important;
-        text-align: left !important;
+        text-align: right !important;
+        max-width: 60% !important;
     }
 
     /* Actions cell - special styling at the bottom of the card */
