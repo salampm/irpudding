@@ -184,89 +184,16 @@
     }
 
     /* =========================================
-       DAILY INVENTORY - Mobile Card Grid
+       STAFF GRID OVERRIDES
        ========================================= */
-    /* Hide table, show cards */
-    #dailyStockContainer { display: none !important; }
-    
-    .daily-stock-grid {
-        display: grid !important;
+    .staff-grid {
         grid-template-columns: 1fr;
-        gap: 12px;
-        padding-bottom: 24px;
     }
-
-    .stock-card {
-        background: var(--bg-card);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
+    .staff-card {
         padding: 14px;
-        box-shadow: var(--shadow-sm);
-        display: flex;
-        flex-direction: column;
         gap: 10px;
     }
 
-    .stock-card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-    }
-
-    .stock-card-header h3 {
-        font-size: 1rem;
-        color: var(--secondary);
-        margin: 0;
-        font-weight: 600;
-    }
-
-    .stock-card-header .loc {
-        font-size: 0.75rem;
-        color: var(--text-muted);
-        margin-top: 2px;
-    }
-
-    .stock-card-body {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-top: 1px solid var(--border-light);
-        padding-top: 10px;
-    }
-
-    .stock-card-qty {
-        font-size: 1.6rem;
-        font-weight: 700;
-        color: var(--primary);
-    }
-
-    .stock-card-unit {
-        font-size: 0.78rem;
-        color: var(--text-light);
-    }
-
-    .stock-card-actions {
-        display: flex;
-        gap: 10px;
-    }
-
-    .stock-card-actions .btn-icon {
-        width: 44px;
-        height: 44px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-sm);
-        background: var(--bg);
-        font-size: 1.1rem;
-    }
-
-    .stock-card-actions .btn-icon.danger {
-        color: var(--danger);
-        border-color: var(--danger-light);
-        background: var(--danger-light);
-    }
 
     /* =========================================
        SETTINGS - Sub-Tabs (Scrollable Pills)

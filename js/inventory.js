@@ -354,17 +354,17 @@ async function loadDailyStock() {
 
         console.log('📋 Rendering', fullList.length, 'items');
 
-        // Always render BOTH views — CSS decides which is visible
+        // Render to table view — mobile.css handles card transformation!
         tableBody.innerHTML = fullList.map(s => `
             <tr>
-                <td>
+                <td data-label="Product">
                     <strong>${s.productName || 'Unknown'}</strong>
                     <br><small class="text-muted"><i class="fas fa-map-marker-alt"></i> ${capitalize(s.location)}</small>
                 </td>
-                <td><span class="size-tag">${capitalize(s.size)} (${s.ml || 0}ml)</span></td>
-                <td><strong class="${s.qty === 0 ? 'text-muted' : ''}">${s.qty || 0}</strong></td>
-                <td>
-                    <div style="display:flex;gap:4px">
+                <td data-label="Size"><span class="size-tag">${capitalize(s.size)} (${s.ml || 0}ml)</span></td>
+                <td data-label="Qty"><strong class="${s.qty === 0 ? 'text-muted' : ''}">${s.qty || 0}</strong></td>
+                <td data-label="Actions">
+                    <div style="display:flex;gap:4px;justify-content:flex-end;width:100%">
                         <button class="btn-icon" title="Add Quantity" onclick='openModal("addDailyStockQty", ${JSON.stringify(s).replace(/"/g, '&quot;')})'>
                             <i class="fas fa-plus-circle"></i>
                         </button>
@@ -376,40 +376,9 @@ async function loadDailyStock() {
             </tr>
         `).join('') || '<tr><td colspan="4" class="no-data">No items found</td></tr>';
 
-        if (gridContainer) {
-            gridContainer.innerHTML = fullList.map(s => `
-                <div class="stock-card">
-                    <div class="stock-card-header">
-                        <div>
-                            <h3>${s.productName || 'Unknown'}</h3>
-                            <div class="loc">${capitalize(s.location)} · ${capitalize(s.size)} (${s.ml || 0}ml)</div>
-                        </div>
-                        <span class="status ${s.qty === 0 ? 'status-critical' : 'status-ok'}">
-                            ${s.qty === 0 ? 'Out' : 'In Stock'}
-                        </span>
-                    </div>
-                    <div class="stock-card-body">
-                        <div>
-                            <div class="stock-card-qty">${s.qty || 0}</div>
-                            <div class="stock-card-unit">Units In-Stock</div>
-                        </div>
-                        <div class="stock-card-actions">
-                            <button class="btn-icon" onclick='openModal("addDailyStockQty", ${JSON.stringify(s).replace(/"/g, '&quot;')})'>
-                                <i class="fas fa-plus-circle"></i>
-                            </button>
-                            <button class="btn-icon danger" onclick='openModal("removeDailyStockQty", ${JSON.stringify(s).replace(/"/g, '&quot;')})'>
-                                <i class="fas fa-minus-circle"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `).join('') || '<p class="no-data">No items found</p>';
-        }
-
-        console.log('✅ Daily stock rendered to both views');
+        console.log('✅ Daily stock rendered explicitly to table container');
     } catch (e) {
         tableBody.innerHTML = '<tr><td colspan="4" class="no-data">Error loading daily stock</td></tr>';
-        if (gridContainer) gridContainer.innerHTML = '<p class="no-data">Error loading inventory</p>';
         console.error('❌ Daily Stock Error:', e);
     }
 }

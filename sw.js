@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'ir-pudding-v1.8';
+const CACHE_VERSION = 'ir-pudding-v1.9';
 const ASSETS = [
   './',
   './index.html',
@@ -38,13 +38,18 @@ self.addEventListener('install', e => {
 // Activate — delete old caches & take control immediately
 self.addEventListener('activate', e => {
   self.clients.claim(); // Take control of all tabs now
+  console.log('[SW] Activating new Service Worker...', CACHE_VERSION);
   e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys
-        .filter(key => key !== CACHE_VERSION)
-        .map(key => caches.delete(key))
-      )
-    )
+    caches.keys().then(keys => {
+      return Promise.all(
+        keys.map(key => {
+          if (key !== CACHE_VERSION) {
+            console.log('[SW] Deleting old cache:', key);
+            return caches.delete(key);
+          }
+        })
+      );
+    }).then(() => console.log('[SW] Old caches purged successfully.'))
   );
 });
 
