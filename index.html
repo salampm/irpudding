@@ -15,6 +15,24 @@
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/869/869636.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover">
+    
+    <script>
+        // Disable pinch zoom and double-tap zoom for Standalone PWA feel
+        document.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 1) e.preventDefault();
+        }, { passive: false });
+        
+        document.addEventListener('gesturestart', (e) => {
+            e.preventDefault();
+        });
+        
+        // Prevent bounce scroll on iOS
+        document.addEventListener('touchmove', (e) => {
+            if (e.target.closest('.scrollable, .table-container, .modal-body, .sidebar')) return;
+            // e.preventDefault(); 
+        }, { passive: false });
+    </script>
 </head>
 <body>
 
@@ -519,7 +537,7 @@
                         <i class="fas fa-plus"></i> Add Stock
                     </button>
                 </div>
-                <div class="table-container">
+                <div id="dailyStockContainer" class="table-container">
                     <table id="dailyStockTable" class="data-table">
                         <thead>
                             <tr>
@@ -530,10 +548,11 @@
                             </tr>
                         </thead>
                         <tbody id="dailyStockBody">
-                            <tr><td colspan="4" class="no-data">Loading...</td></tr>
+                            <tr><td colspan="4" class="no-data">Loading inventory...</td></tr>
                         </tbody>
                     </table>
                 </div>
+                <div id="dailyStockGrid" class="daily-stock-grid" style="display:none"></div>
             </section>
 
             <!-- ===== TAB: Customers ===== -->
