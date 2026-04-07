@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'ir-pudding-v1.7';
+const CACHE_VERSION = 'ir-pudding-v1.8';
 const ASSETS = [
   './',
   './index.html',

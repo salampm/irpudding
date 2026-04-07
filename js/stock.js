@@ -62,17 +62,17 @@ async function loadStock(type) {
 
         return `
             <tr>
-                <td>
+                <td data-label="Item">
                     <strong>${item.name}</strong>
                     ${loc === 'all' ? `<br><small class="text-muted">${capitalize(item.location)}</small>` : ''}
                 </td>
-                <td><strong>${item.qty || 0}</strong></td>
-                <td>${item.unit || '-'}</td>
-                <td>${item.threshold || '-'}</td>
-                <td>${itemSuppliers.length > 0 ? itemSuppliers.join(', ') : '<span class="text-muted">-</span>'}</td>
-                <td>${getStatusBadge(status)}</td>
-                <td>
-                    <div style="display:flex;gap:4px">
+                <td data-label="Qty"><strong>${item.qty || 0}</strong></td>
+                <td data-label="Unit">${item.unit || '-'}</td>
+                <td data-label="Threshold">${item.threshold || '-'}</td>
+                <td data-label="Supplier(s)">${itemSuppliers.length > 0 ? itemSuppliers.join(', ') : '<span class="text-muted">-</span>'}</td>
+                <td data-label="Status">${getStatusBadge(status)}</td>
+                <td data-label="Actions">
+                    <div style="display:flex;gap:4px;justify-content:flex-end;width:100%">
                         <button class="btn-icon" title="Adjust stock" onclick='openModal("adjustStock", ${JSON.stringify({key:item.key, name:item.name, qty:item.qty, unit:item.unit, location:item.location, type:item.type})})'>
                             <i class="fas fa-sliders-h"></i>
                         </button>
@@ -221,12 +221,12 @@ async function loadSuppliers() {
 
         tbody.innerHTML = Object.entries(suppliers).map(([id, sup]) => `
             <tr>
-                <td><strong>${sup.name}</strong></td>
-                <td>${sup.phone || '-'}</td>
-                <td>${sup.items || '-'}</td>
-                ${isOwner() ? `<td class="text-danger"><strong>${formatCurrency(supplierOutstanding[id] || 0)}</strong></td>` : ''}
-                <td>
-                    <div style="display:flex;gap:4px">
+                <td data-label="Name"><strong>${sup.name}</strong></td>
+                <td data-label="Phone">${sup.phone || '-'}</td>
+                <td data-label="Items">${sup.items || '-'}</td>
+                ${isOwner() ? `<td data-label="Outstanding" class="text-danger"><strong>${formatCurrency(supplierOutstanding[id] || 0)}</strong></td>` : ''}
+                <td data-label="Actions">
+                    <div style="display:flex;gap:4px;justify-content:flex-end;width:100%">
                         <button class="btn-icon" title="Edit" onclick='editSupplier(${JSON.stringify({id, ...sup})})'>
                             <i class="fas fa-edit"></i>
                         </button>

@@ -102,14 +102,86 @@
     .btn-primary, .btn-secondary { padding: 8px 14px; font-size: 0.8rem; }
 
     /* =========================================
-       TABLES - Responsive
+       TABLES -> CARDS (Responsive Transformation)
        ========================================= */
-    .table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-
-    .data-table { min-width: 0; width: 100%; table-layout: auto; }
-
-    .data-table thead th { padding: 10px 8px; font-size: 0.72rem; }
-    .data-table tbody td { padding: 10px 8px; font-size: 0.82rem; }
+    .table-container { 
+        overflow: hidden; 
+        background: transparent; 
+        box-shadow: none; 
+        padding: 0;
+    }
+    .data-table, .data-table tbody { 
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%; 
+        border: none;
+    }
+    .data-table thead { 
+        display: none; 
+    }
+    .data-table tr {
+        display: flex;
+        flex-direction: column;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+        box-shadow: var(--shadow-sm);
+    }
+    .data-table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border-light) !important;
+        text-align: right;
+        min-height: 32px;
+        border-left: none;
+        border-right: none;
+        border-top: none;
+        font-size: 0.85rem;
+    }
+    .data-table td:last-child {
+        border-bottom: none !important;
+        padding-bottom: 0;
+        margin-top: 4px;
+    }
+    /* Pseudo-label for details (reads from data-label attribute) */
+    .data-table td::before {
+        content: attr(data-label);
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        font-weight: 600;
+        margin-right: 12px;
+        text-align: left;
+    }
+    /* First cell (Name/Item) becomes the card header */
+    .data-table td:first-child {
+        justify-content: flex-start;
+        align-items: flex-start;
+        flex-direction: column;
+        font-size: 1.05rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 8px;
+        padding-bottom: 12px;
+        gap: 4px;
+    }
+    .data-table td:first-child::before {
+        display: none;
+    }
+    .data-table td.no-data {
+        justify-content: center;
+        text-align: center;
+        margin-bottom: 0;
+        border: none !important;
+        padding-bottom: 16px;
+    }
+    .data-table td.no-data::before {
+        display: none;
+    }
 
     /* =========================================
        DAILY INVENTORY - Mobile Card Grid

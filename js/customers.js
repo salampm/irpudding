@@ -49,17 +49,17 @@ async function loadCustomers() {
 
         tbody.innerHTML = filtered.map(c => `
             <tr>
-                <td>
+                <td data-label="Name">
                     <strong>${c.name}</strong>
                     ${c.address ? `<br><small class="text-muted">${c.address.substring(0, 30)}...</small>` : ''}
                 </td>
-                <td>${c.phone || '-'}</td>
-                <td><span class="status status-placed">${capitalize(c.location)}</span></td>
-                <td>${payTermsLabels[c.paymentTerms] || c.paymentTerms || '-'}</td>
-                <td>${c.gst ? '<span class="status status-ok">Yes</span>' : '<span class="text-muted">No</span>'}</td>
-                ${isOwner() ? `<td class="${(outstanding[c.id] || 0) > 0 ? 'text-danger' : ''}"><strong>${formatCurrency(outstanding[c.id] || 0)}</strong></td>` : ''}
-                <td>
-                    <div style="display:flex;gap:4px;flex-wrap:wrap">
+                <td data-label="Phone">${c.phone || '-'}</td>
+                <td data-label="Location"><span class="status status-placed">${capitalize(c.location)}</span></td>
+                <td data-label="Terms">${payTermsLabels[c.paymentTerms] || c.paymentTerms || '-'}</td>
+                <td data-label="GST">${c.gst ? '<span class="status status-ok">Yes</span>' : '<span class="text-muted">No</span>'}</td>
+                ${isOwner() ? `<td data-label="Outstanding" class="${(outstanding[c.id] || 0) > 0 ? 'text-danger' : ''}"><strong>${formatCurrency(outstanding[c.id] || 0)}</strong></td>` : ''}
+                <td data-label="Actions">
+                    <div style="display:flex;gap:4px;justify-content:flex-end;width:100%">
                         ${isOwner() ? `
                             <button class="btn-icon" title="Set Prices" onclick='openModal("customerPricing", ${JSON.stringify({id:c.id, name:c.name})})'>
                                 <i class="fas fa-tag"></i>
