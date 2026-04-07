@@ -74,9 +74,14 @@ async function generateReport() {
             e.date >= dateFrom && e.date <= dateTo
         );
 
-        let filteredPayments = Object.values(payments).filter(p =>
-            p.date >= dateFrom && p.date <= dateTo
-        );
+        let filteredPayments = Object.values(payments).filter(p => {
+            const dateMatch = p.date >= dateFrom && p.date <= dateTo;
+            if (!dateMatch) return false;
+            // Filter by location of original order
+            if (loc === 'all') return true;
+            const order = orders[p.orderId];
+            return order && order.location === loc;
+        });
 
         // Calculate totals
         const totalSales = filteredOrders.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);

@@ -7,32 +7,56 @@ function initSettings() {
 }
 
 async function loadSettings() {
-    if (!isOwner()) return;
-
     try {
-        const snap = await dbRef.settings.once('value');
-        const settings = snap.val() || {};
+        if (isOwner()) {
+            const snap = await dbRef.settings.once('value');
+            const settings = snap.val() || {};
 
-        document.getElementById('setBizName').value = settings.businessName || 'IR Pudding';
-        document.getElementById('setBizAddress').value = settings.address || '';
-        document.getElementById('setBizPhone').value = settings.phone || '';
-        document.getElementById('setBizGSTIN').value = settings.gstin || '';
-        document.getElementById('setGSTRate').value = settings.gstRate || 5;
-        document.getElementById('setUPI').value = settings.upiNumber || '9611920271';
-        document.getElementById('setBankDetails').value = settings.bankDetails || '';
-        document.getElementById('setWhatsAppTemplate').value = settings.whatsappTemplate || getDefaultWhatsAppTemplate();
+            document.getElementById('setBizName').value = settings.businessName || 'IR Pudding';
+            document.getElementById('setBizAddress').value = settings.address || '';
+            document.getElementById('setBizPhone').value = settings.phone || '';
+            document.getElementById('setGSTRate').value = settings.gstRate || 5;
+            document.getElementById('setUPI').value = settings.upiNumber || '9611920271';
+            document.getElementById('setWhatsAppTemplate').value = settings.whatsappTemplate || getDefaultWhatsAppTemplate();
 
-        // Load expense categories
-        await loadSettingsCategories();
+            await loadSettingsCategories();
+            await loadRecipeSettings();
+            await loadSettingsUsersList();
+        }
 
-        // Load recipe config
-        await loadRecipeSettings();
-
-        // Load users list for settings main page
-        await loadSettingsUsersList();
+        // Load current user profile
+        const userSnap = await dbRef.users.child(currentUser.uid).once('value');
+        const userData = userSnap.val() || {};
+        const profileNameInput = document.getElementById('setUserProfileName');
+        if (profileNameInput) profileNameInput.value = userData.name || '';
 
     } catch (e) {
         console.error('Settings load error:', e);
+    }
+}
+
+async function saveUserProfile() {
+    const name = document.getElementById('setUserProfileName').value.trim();
+    const newPass = document.getElementById('setUserProfilePass').value.trim();
+
+    if (!name) {
+        showToast('Name is required', 'error');
+        return;
+    }
+
+    try {
+        await dbRef.users.child(currentUser.uid).update({ name });
+        if (newPass) {
+            if (newPass.length < 6) {
+                showToast('Password must be at least 6 characters', 'error');
+                return;
+            }
+            await firebase.auth().currentUser.updatePassword(newPass);
+            document.getElementById('setUserProfilePass').value = '';
+        }
+        showToast('Profile updated successfully!', 'success');
+    } catch (e) {
+        showToast('Error updating profile: ' + e.message, 'error');
     }
 }
 
@@ -104,7 +128,7 @@ function resetWhatsAppTemplate() {
     showToast('Template reset to default', 'info');
 }
 
-// ---- Expense Categories Management ----
+// ---- Expense Categories Management (Thumbnail Grid) ----
 async function loadSettingsCategories() {
     const container = document.getElementById('expenseCategoriesList');
     if (!container) return;
@@ -114,14 +138,28 @@ async function loadSettingsCategories() {
         const categories = snap.val() || {};
 
         container.innerHTML = Object.entries(categories).map(([key, cat]) => `
-            <span class="category-tag">
-                ${cat.name}
-                <button class="remove-cat" onclick="removeExpenseCategory('${key}')">
-                    <i class="fas fa-times"></i>
+            <div class="category-card" onclick="editExpenseCategoryName('${key}', '${cat.name}')">
+                <i class="fas fa-tag"></i>
+                <div class="name">${cat.name}</div>
+                <button class="delete-btn" onclick="event.stopPropagation(); removeExpenseCategory('${key}')">
+                    <i class="fas fa-trash"></i>
                 </button>
-            </span>
+            </div>
         `).join('');
     } catch (e) { /* ignore */ }
+}
+
+async function editExpenseCategoryName(key, currentName) {
+    const newName = prompt('Enter new category name:', currentName);
+    if (!newName || newName.trim() === '' || newName === currentName) return;
+    
+    try {
+        await dbRef.expenseCategories.child(key).update({ name: newName.trim() });
+        loadSettingsCategories();
+        showToast('Category renamed', 'success');
+    } catch (e) {
+        showToast('Error renaming', 'error');
+    }
 }
 
 async function addExpenseCategory() {
@@ -213,9 +251,9 @@ async function loadSettingsUsersList() {
         };
 
         const usersHtml = Object.entries(users).map(([uid, u]) => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-light);font-size:0.9rem">
+            <div class="user-list-row" onclick="editUserByOwner('${uid}', ${JSON.stringify(u).replace(/"/g, '&quot;')})" style="display:flex;justify-content:space-between;align-items:center;padding:10px;border-bottom:1px solid var(--border-light);cursor:pointer;transition:background 0.2s;border-radius:4px" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='transparent'">
                 <div>
-                    <strong>${u.name || 'Unknown'}</strong>
+                    <strong>${u.name || 'Unknown'} ${uid === currentUser.uid ? '(You)' : ''}</strong>
                     <br><small class="text-muted">${u.email || uid.substring(0, 12) + '...'}</small>
                 </div>
                 <div>
@@ -232,81 +270,136 @@ async function loadSettingsUsersList() {
     }
 }
 
-// ---- Backup ----
+async function editUserByOwner(uid, u) {
+    if (uid === currentUser.uid) {
+        // Switch to profile tab
+        const profileBtn = document.querySelector('[data-sub="set-profile"]');
+        if (profileBtn) switchSubTab(profileBtn, 'set-profile');
+        return;
+    }
+
+    const newName = prompt(`Edit Name for ${u.email}:`, u.name || '');
+    if (newName === null) return;
+
+    const newRole = prompt(`Edit Role for ${u.email} (owner, staff_blr, staff_chn):`, u.role);
+    if (newRole === null) return;
+
+    try {
+        await dbRef.users.child(uid).update({
+            name: newName.trim(),
+            role: newRole.trim()
+        });
+        showToast('User updated', 'success');
+        loadSettingsUsersList();
+    } catch (e) {
+        showToast('Error updating user', 'error');
+    }
+}
+
+// ---- Backup (Cleaned up Excel) ----
 async function backupAllData() {
     showToast('Preparing backup...', 'info');
 
     try {
         const wb = XLSX.utils.book_new();
 
-        // Backup each collection
-        const collections = [
-            { ref: 'customers', name: 'Customers' },
-            { ref: 'orders', name: 'Orders' },
-            { ref: 'payments', name: 'Payments' },
-            { ref: 'purchases', name: 'Purchases' },
-            { ref: 'expenses', name: 'Expenses' },
-            { ref: 'suppliers', name: 'Suppliers' },
-            { ref: 'staff', name: 'Staff' },
-            { ref: 'salary_logs', name: 'Salary Logs' },
-            { ref: 'transfers', name: 'Transfers' }
-        ];
+        // Ensure we always have sheets even if data is empty
+        const ensureSheet = (rows, name) => {
+            const dataRows = rows.length > 0 ? rows : [{ 'Note': 'No data available' }];
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataRows), name);
+        };
 
-        for (const col of collections) {
-            try {
-                const snap = await db.ref(col.ref).once('value');
-                const data = snap.val() || {};
+        // 1. Orders
+        const ordSnap = await dbRef.orders.once('value');
+        const orders = ordSnap.val() || {};
+        const ordRows = Object.values(orders).map(o => ({
+            'Invoice No': o.invoiceNo,
+            'Date': o.date,
+            'Customer': o.customerName,
+            'Location': o.customerLocation || o.location,
+            'Grand Total': o.total,
+            'Paid Amount': o.paidAmount,
+            'Pending': (o.total || 0) - (o.paidAmount || 0),
+            'Status': o.status,
+            'Payment Mode': o.lastPaymentType
+        }));
+        ensureSheet(ordRows, 'Sales_Orders');
 
-                const rows = Object.entries(data).map(([id, item]) => {
-                    // Flatten nested objects
-                    const flat = { id };
-                    Object.entries(item).forEach(([key, val]) => {
-                        if (typeof val === 'object' && val !== null) {
-                            flat[key] = JSON.stringify(val);
-                        } else {
-                            flat[key] = val;
-                        }
-                    });
-                    return flat;
-                });
+        // 2. Customers
+        const custSnap = await dbRef.customers.once('value');
+        const customers = custSnap.val() || {};
+        const custRows = Object.values(customers).map(c => ({
+            'Name': c.name,
+            'Phone': c.phone,
+            'Location': c.location,
+            'GSTIN': c.gstin || 'N/A',
+            'Wallet Balance': c.walletBalance || 0
+        }));
+        ensureSheet(custRows, 'Customers');
 
-                if (rows.length > 0) {
-                    const ws = XLSX.utils.json_to_sheet(rows);
-                    XLSX.utils.book_append_sheet(wb, ws, col.name);
-                }
-            } catch (e) { /* skip if error */ }
-        }
-
-        // Stock data (separate sheet)
-        try {
-            const stockSnap = await dbRef.stock.once('value');
-            const stockData = stockSnap.val() || {};
-            const stockRows = [];
-
-            Object.entries(stockData).forEach(([location, types]) => {
-                Object.entries(types || {}).forEach(([type, items]) => {
-                    Object.entries(items || {}).forEach(([key, item]) => {
-                        stockRows.push({
-                            Location: location,
-                            Type: type,
-                            Key: key,
-                            Name: item.name,
-                            Qty: item.qty,
-                            Unit: item.unit,
-                            Threshold: item.threshold
-                        });
+        // 3. Stock Items
+        const stockSnap = await dbRef.stock.once('value');
+        const stockData = stockSnap.val() || {};
+        const stockRows = [];
+        Object.entries(stockData).forEach(([loc, types]) => {
+            Object.entries(types || {}).forEach(([type, items]) => {
+                Object.values(items || {}).forEach(i => {
+                    stockRows.push({
+                        'Location': loc,
+                        'Category': type,
+                        'Item Name': i.name,
+                        'Current Qty': i.qty,
+                        'Unit': i.unit,
+                        'Low Stock Alert': i.threshold
                     });
                 });
             });
+        });
+        ensureSheet(stockRows, 'Inventory');
 
-            if (stockRows.length > 0) {
-                const ws = XLSX.utils.json_to_sheet(stockRows);
-                XLSX.utils.book_append_sheet(wb, ws, 'Stock');
-            }
-        } catch (e) { /* skip */ }
+        // 4. Expenses
+        const expSnap = await dbRef.expenses.once('value');
+        const expenses = expSnap.val() || {};
+        const expRows = Object.values(expenses).map(e => ({
+            'Date': e.date,
+            'Category': e.category,
+            'Amount': e.amount,
+            'Description': e.description,
+            'Location': e.location
+        }));
+        ensureSheet(expRows, 'Expenses');
 
-        XLSX.writeFile(wb, `IR_Pudding_Backup_${getTodayStr()}.xlsx`);
-        showToast('Full backup exported successfully! 📥', 'success');
+        // 5. Inventory Ledger
+        const invSnap = await dbRef.inventoryLedger.once('value');
+        const invLogs = invSnap.val() || {};
+        const invRows = Object.values(invLogs).map(l => ({
+            'Date': l.date,
+            'Timestamp': new Date(l.timestamp).toLocaleString(),
+            'Product': l.productName,
+            'Size': l.size,
+            'Action': l.action,
+            'Qty': l.qty,
+            'Location': l.location,
+            'By': l.by
+        }));
+        ensureSheet(invRows, 'Inventory_Ledger');
+
+        // 6. Wastage Logs
+        const wasteSnap = await dbRef.wastage.once('value');
+        const wasteLogs = wasteSnap.val() || {};
+        const wasteRows = Object.values(wasteLogs).map(w => ({
+            'Date': w.date || '',
+            'Product': w.productName,
+            'Size': w.size,
+            'Qty': w.qty,
+            'Reason': w.reason,
+            'Location': w.location,
+            'By': w.loggedBy
+        }));
+        ensureSheet(wasteRows, 'Wastage_Logs');
+
+        XLSX.writeFile(wb, `IR_Pudding_Full_Backup_${getTodayStr()}.xlsx`);
+        showToast('Full backup exported! 📥', 'success');
     } catch (e) {
         console.error('Backup error:', e);
         showToast('Error creating backup', 'error');

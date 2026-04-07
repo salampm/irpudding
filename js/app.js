@@ -28,6 +28,7 @@ function initApp() {
         if (typeof initPayments === 'function') initPayments();
         if (typeof initExpenses === 'function') initExpenses();
         if (typeof initSalary === 'function') initSalary();
+        if (typeof initWastage === 'function') initWastage();
         if (typeof initReports === 'function') initReports();
         if (typeof initSettings === 'function') initSettings();
     } catch (e) {
@@ -219,6 +220,12 @@ function onTabSwitch(tabName) {
             if (typeof loadStaff === 'function') loadStaff();
             break;
         case 'reports':
+            break;
+        case 'inventoryLedger':
+            if (typeof loadInventoryLedger === 'function') loadInventoryLedger();
+            break;
+        case 'wastage':
+            if (typeof loadWastage === 'function') loadWastage();
             break;
         case 'settings':
             if (typeof loadSettings === 'function') loadSettings();
@@ -618,26 +625,26 @@ function getModalContent(type, data) {
 
         case 'addProduct':
             return {
-                title: '➕ Add Product',
+                title: (data && data.id) ? '✏️ Edit Product' : '➕ Add Product',
                 html: `
+                    <input type="hidden" id="modalProdId" value="${(data && data.id) ? data.id : ''}">
                     <div class="form-group">
                         <label>Product Name *</label>
-                        <input type="text" id="modalProdName" placeholder="e.g., Butterscotch Pudding">
+                        <input type="text" id="modalProdName" value="${(data && data.name) ? data.name : ''}" placeholder="e.g., Butterscotch Pudding">
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Small Size (ml)</label>
-                            <input type="number" id="modalProdSmall" value="100" min="1">
-                        </div>
-                        <div class="form-group">
-                            <label>Big Size (ml)</label>
-                            <input type="number" id="modalProdBig" value="150" min="1">
-                        </div>
+                    <div id="productSizesContainer">
+                        <label>Product Sizes *</label>
+                        <div id="productSizesList"></div>
+                        <button type="button" class="btn-sm btn-outline mt-2" onclick="addProductSizeRow()"><i class="fas fa-plus"></i> Add Size</button>
                     </div>
-                    <div class="form-actions">
+                    <div class="form-actions mt-12">
                         <button class="btn-outline" onclick="closeModal()">Cancel</button>
-                        <button class="btn-primary" onclick="saveProduct()"><i class="fas fa-save"></i> Save</button>
+                        <button class="btn-primary" onclick="saveProduct()"><i class="fas fa-save"></i> Save Product</button>
                     </div>
+                    <script>
+                        window._currentProdSizes = ${JSON.stringify((data && data.sizes) ? data.sizes : null)};
+                        if (typeof initProductModalSizes === 'function') initProductModalSizes();
+                    </script>
                 `
             };
 
@@ -645,6 +652,10 @@ function getModalContent(type, data) {
             return {
                 title: '➕ Add Daily Inventory',
                 html: `
+                    <div class="form-group">
+                        <label>Date *</label>
+                        <input type="date" id="modalDSDate" value="${getTodayStr()}">
+                    </div>
                     <div class="form-group">
                         <label>Product *</label>
                         <select id="modalDSProduct" onchange="loadDSProductSizes()">
@@ -679,6 +690,75 @@ function getModalContent(type, data) {
                     <script>
                         if (typeof loadDSProducts === 'function') loadDSProducts();
                     </script>
+                `
+            };
+
+        case 'addDailyStockQty':
+            return {
+                title: '➕ Add Quantity - ' + (data.productName || ''),
+                html: `
+                    <input type="hidden" id="modalAdjStockId" value="${data.stockId || ''}">
+                    <input type="hidden" id="modalAdjProdId" value="${data.productId || ''}">
+                    <input type="hidden" id="modalAdjProdName" value="${data.productName || ''}">
+                    <input type="hidden" id="modalAdjSize" value="${data.size || ''}">
+                    <input type="hidden" id="modalAdjMl" value="${data.ml || ''}">
+                    <input type="hidden" id="modalAdjLocation" value="${data.location || ''}">
+
+                    <p style="margin-bottom:12px">Current: <strong>${data.qty || 0}</strong></p>
+                    <div class="form-group">
+                        <label>Date of Adjustment *</label>
+                        <input type="date" id="modalAdjDate" value="${getTodayStr()}">
+                    </div>
+                    <div class="form-group">
+                        <label>Quantity to ADD *</label>
+                        <input type="number" id="modalAdjQty" min="1" step="1" placeholder="Enter amount to add">
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn-outline" onclick="closeModal()">Cancel</button>
+                        <button class="btn-primary" onclick="processDailyStockAdjust('add')"><i class="fas fa-plus"></i> Add to Stock</button>
+                    </div>
+                `
+            };
+
+        case 'removeDailyStockQty':
+            return {
+                title: '➖ Remove / Waste - ' + (data.productName || ''),
+                html: `
+                    <input type="hidden" id="modalAdjStockId" value="${data.stockId || ''}">
+                    <input type="hidden" id="modalAdjProdId" value="${data.productId || ''}">
+                    <input type="hidden" id="modalAdjProdName" value="${data.productName || ''}">
+                    <input type="hidden" id="modalAdjSize" value="${data.size || ''}">
+                    <input type="hidden" id="modalAdjMl" value="${data.ml || ''}">
+                    <input type="hidden" id="modalAdjLocation" value="${data.location || ''}">
+
+                    <p style="margin-bottom:12px">Current: <strong>${data.qty || 0}</strong></p>
+                    <div class="form-group">
+                        <label>Date of Adjustment *</label>
+                        <input type="date" id="modalAdjDate" value="${getTodayStr()}">
+                    </div>
+                    <div class="form-group">
+                        <label>Quantity to REMOVE *</label>
+                        <input type="number" id="modalAdjQty" min="1" max="${data.qty}" step="1" placeholder="Enter amount to remove">
+                    </div>
+                    <div class="form-group">
+                        <label>Reason for Removal *</label>
+                        <select id="modalAdjReason">
+                            <option value="spoilage">Spoilage / Expired</option>
+                            <option value="damage">Damaged</option>
+                            <option value="sample">Free Sample</option>
+                            <option value="testing">Internal Testing</option>
+                            <option value="theft">Found Missing / Theft</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <input type="text" id="modalAdjNotes" placeholder="Optional notes about why removed">
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn-outline" onclick="closeModal()">Cancel</button>
+                        <button class="btn-danger" onclick="processDailyStockAdjust('remove')"><i class="fas fa-trash"></i> Log Removal</button>
+                    </div>
                 `
             };
 
@@ -1178,8 +1258,72 @@ window.loadPurItemsByCategory = async function(category) {
         Array.from(allItems).sort().map(name => `<option value="${name}">${name}</option>`).join('');
 };
 
+// ---- Wastage Tracking ----
+window.initWastage = function() {
+    console.log('🗑️ Wastage module initialized');
+};
+
+window.loadWastage = async function() {
+    const tbody = document.getElementById('wastageBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="6" class="no-data">Loading logs...</td></tr>';
+
+    try {
+        const snap = await dbRef.wastage.once('value');
+        const logs = snap.val() || {};
+
+        if (Object.keys(logs).length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="no-data">No wastage recorded yet</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = Object.entries(logs)
+            .sort((a, b) => b[1].timestamp - a[1].timestamp)
+            .map(([id, log]) => `
+                <tr>
+                    <td>${new Date(log.timestamp).toLocaleDateString('en-IN')}</td>
+                    <td><strong>${log.productName}</strong><br><small>${capitalize(log.size)} (${log.ml}ml)</small></td>
+                    <td><strong class="text-danger">${log.qty}</strong></td>
+                    <td><span class="status status-critical">${capitalize(log.reason)}</span>${log.notes ? `<br><small>${log.notes}</small>` : ''}</td>
+                    <td>${capitalize(log.location)}</td>
+                    <td>
+                        <div style="display:flex;gap:4px">
+                            ${log.cost ? `<span>Cost: ${formatCurrency(log.cost)}</span>` : `
+                                <button class="btn-sm btn-outline" onclick="addWastageCost('${id}')">Add Cost</button>
+                            `}
+                            <button class="btn-icon danger" onclick="deleteWastagePermanent('${id}')"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="6" class="no-data">Error loading wastage data</td></tr>';
+    }
+};
+
+window.addWastageCost = async function(id) {
+    const cost = prompt('Enter the cost (loss) for this item (₹):');
+    if (cost === null || cost === '') return;
+    
+    try {
+        await dbRef.wastage.child(id).update({ cost: parseFloat(cost) || 0 });
+        showToast('Cost added to logs', 'success');
+        loadWastage();
+    } catch (e) {
+        showToast('Error updating cost', 'error');
+    }
+};
+
+window.deleteWastagePermanent = async function(id) {
+    if (!await confirmAction('Permanently delete this wastage record?')) return;
+    await dbRef.wastage.child(id).remove();
+    loadWastage();
+};
+
 console.log('🎮 App controller loaded');
-// ---- Units Management in Settings ----
+// ---- Units Management in Settings (Thumbnail Grid) ----
 window.loadUnitsSetting = async function() {
     const list = document.getElementById('unitsList');
     if (!list) return;
@@ -1192,12 +1336,27 @@ window.loadUnitsSetting = async function() {
         }
 
         list.innerHTML = Object.entries(units).map(([id, u]) => `
-            <div class="category-item">
-                <span><i class="fas fa-balance-scale"></i> ${u.name}</span>
-                <button class="btn-icon danger" onclick="deleteUnit('${id}')"><i class="fas fa-trash"></i></button>
+            <div class="category-card" onclick="editUnitName('${id}', '${u.name}')">
+                <i class="fas fa-balance-scale"></i>
+                <div class="name">${u.name}</div>
+                <button class="delete-btn" onclick="event.stopPropagation(); deleteUnit('${id}')">
+                    <i class="fas fa-trash"></i>
+                </button>
             </div>
         `).join('');
     });
+};
+
+window.editUnitName = async function(id, currentName) {
+    const newName = prompt('Enter new unit name:', currentName);
+    if (!newName || newName.trim() === '' || newName === currentName) return;
+    
+    try {
+        await dbRef.units.child(id).update({ name: newName.trim() });
+        showToast('Unit renamed', 'success');
+    } catch (e) {
+        showToast('Error renaming unit', 'error');
+    }
 };
 
 window.addUnit = async function() {

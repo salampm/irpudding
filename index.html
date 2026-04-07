@@ -8,6 +8,13 @@
     <link rel="stylesheet" href="css/mobile.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- PWA Support -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#6d4c41">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/869/869636.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
 
@@ -18,7 +25,7 @@
                 <div class="logo-icon">
                     <i class="fas fa-cookie-bite"></i>
                 </div>
-                <h1>IR Pudding</h1>
+                <h1>IR Pudding <span style="font-size:0.6em;opacity:0.6;font-weight:300">V1.5</span></h1>
                 <p class="login-subtitle">Tracking System</p>
             </div>
             <form id="loginForm" class="login-form">
@@ -78,7 +85,7 @@
                         <i class="fas fa-cookie-bite"></i>
                     </div>
                     <div>
-                        <h2>IR Pudding</h2>
+                        <h2>IR Pudding <span style="font-size:0.5em;opacity:0.5">V1.5</span></h2>
                         <small>Tracking System</small>
                     </div>
                 </div>
@@ -98,10 +105,6 @@
                 <a href="#" class="nav-item" data-tab="pos" onclick="switchTab('pos', this)">
                     <i class="fas fa-cash-register"></i>
                     <span>POS / Orders</span>
-                </a>
-                <a href="#" class="nav-item" data-tab="products" onclick="switchTab('products', this)">
-                    <i class="fas fa-ice-cream"></i>
-                    <span>Products</span>
                 </a>
                 <a href="#" class="nav-item" data-tab="dailyStock" onclick="switchTab('dailyStock', this)">
                     <i class="fas fa-boxes"></i>
@@ -157,6 +160,14 @@
                     <i class="fas fa-wallet"></i>
                     <span>Staff & Salary</span>
                 </a>
+                <a href="#" class="nav-item owner-only" data-tab="wastage" onclick="switchTab('wastage', this)">
+                    <i class="fas fa-trash-alt"></i>
+                    <span>Wastage Tracking</span>
+                </a>
+                <a href="#" class="nav-item owner-only" data-tab="inventoryLedger" onclick="switchTab('inventoryLedger', this)">
+                    <i class="fas fa-history"></i>
+                    <span>Inventory Ledger</span>
+                </a>
 
                 <div class="nav-section owner-only">REPORTS</div>
                 <a href="#" class="nav-item owner-only" data-tab="reports" onclick="switchTab('reports', this)">
@@ -164,8 +175,8 @@
                     <span>Reports</span>
                 </a>
 
-                <div class="nav-section owner-only">SYSTEM</div>
-                <a href="#" class="nav-item owner-only" data-tab="settings" onclick="switchTab('settings', this)">
+                <div class="nav-section">SYSTEM</div>
+                <a href="#" class="nav-item" data-tab="settings" onclick="switchTab('settings', this)">
                     <i class="fas fa-cog"></i>
                     <span>Settings</span>
                 </a>
@@ -195,7 +206,7 @@
             <!-- ===== TAB: Dashboard ===== -->
             <section id="tab-dashboard" class="tab-content active">
                 <div class="page-header">
-                    <h1><i class="fas fa-tachometer-alt"></i> Dashboard</h1>
+                    <h1><i class="fas fa-tachometer-alt"></i> Dashboard <small style="font-size:0.5em;opacity:0.5;font-weight:300">V1.5</small></h1>
                     <p class="page-subtitle" id="dashDate"></p>
                 </div>
 
@@ -474,16 +485,29 @@
                 </div>
             </section>
 
-            <!-- ===== TAB: Products ===== -->
-            <section id="tab-products" class="tab-content">
+
+            <!-- ===== TAB: Wastage Tracking (Owner Only) ===== -->
+            <section id="tab-wastage" class="tab-content owner-only">
                 <div class="page-header">
-                    <h1><i class="fas fa-ice-cream"></i> Products</h1>
-                    <button class="btn-primary" onclick="openModal('addProduct')">
-                        <i class="fas fa-plus"></i> Add Product
-                    </button>
+                    <h1><i class="fas fa-trash-alt"></i> Wastage Tracking</h1>
+                    <p class="page-subtitle">Inventory removals and spoilage logs</p>
                 </div>
-                <div id="productsGrid" class="products-grid">
-                    <p class="no-data">Loading products...</p>
+                <div class="table-container">
+                    <table id="wastageTable" class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Item</th>
+                                <th>Removed Qty</th>
+                                <th>Reason</th>
+                                <th>Location</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="wastageBody">
+                            <tr><td colspan="6" class="no-data">No wastage recorded yet</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </section>
 
@@ -673,6 +697,52 @@
                 </div>
             </section>
 
+            <!-- ===== TAB: Inventory Ledger (Owner) ===== -->
+            <section id="tab-inventoryLedger" class="tab-content owner-only">
+                <div class="page-header">
+                    <h1><i class="fas fa-history"></i> Inventory Ledger</h1>
+                </div>
+                
+                <div class="reports-tabs" style="margin-bottom:16px">
+                    <button class="ledger-tab active" onclick="switchLedgerRange('daily', this)">Daily</button>
+                    <button class="ledger-tab" onclick="switchLedgerRange('weekly', this)">Weekly</button>
+                    <button class="ledger-tab" onclick="switchLedgerRange('monthly', this)">Monthly</button>
+                    <button class="ledger-tab" onclick="switchLedgerRange('custom', this)">Custom</button>
+                </div>
+
+                <div class="report-filters" style="margin-bottom:16px; align-items: center;">
+                    <div style="display:flex;gap:8px">
+                        <input type="date" id="invLedgerDate" onchange="loadInventoryLedger()">
+                        <input type="date" id="invLedgerDateTo" style="display:none" onchange="loadInventoryLedger()">
+                        <select id="invLedgerLocation" onchange="loadInventoryLedger()">
+                            <option value="all">All Locations</option>
+                            <option value="bangalore">Bangalore</option>
+                            <option value="chennai">Chennai</option>
+                        </select>
+                    </div>
+                    <button class="btn-secondary btn-sm" onclick="exportInventoryLedger()"><i class="fas fa-file-excel"></i> Export Excel</button>
+                </div>
+
+                <div class="table-container shadow-sm mt-3">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date/Time</th>
+                                <th>Product (Size)</th>
+                                <th>Action</th>
+                                <th>Qty</th>
+                                <th>Location</th>
+                                <th>By</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryLedgerBody">
+                            <tr><td colspan="7" class="no-data">Select filters or load data</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
             <!-- ===== TAB: Staff & Salary (Owner) ===== -->
             <section id="tab-salary" class="tab-content owner-only">
                 <div class="page-header">
@@ -708,42 +778,65 @@
                 </div>
             </section>
 
-            <!-- ===== TAB: Settings (Owner) ===== -->
-            <section id="tab-settings" class="tab-content owner-only">
+            <!-- ===== TAB: Settings (Everybody) ===== -->
+            <section id="tab-settings" class="tab-content">
                 <div class="page-header">
-                    <h1><i class="fas fa-cog"></i> Settings</h1>
+                    <h1><i class="fas fa-cog"></i> Settings <small style="font-size:0.5em;opacity:0.5;font-weight:300">V1.5</small></h1>
                 </div>
 
                 <div class="sub-tabs">
-                    <button class="sub-tab active" data-sub="set-biz" onclick="switchSubTab(this, 'set-biz')">
-                        <i class="fas fa-building"></i> Profile
+                    <button class="sub-tab active" data-sub="set-profile" onclick="switchSubTab(this, 'set-profile')">
+                        <i class="fas fa-user-circle"></i> My Profile
                     </button>
-                    <button class="sub-tab" data-sub="set-tax" onclick="switchSubTab(this, 'set-tax')">
+                    <button class="sub-tab owner-only" data-sub="set-biz" onclick="switchSubTab(this, 'set-biz')">
+                        <i class="fas fa-building"></i> Business
+                    </button>
+                    <button class="sub-tab owner-only" data-sub="set-tax" onclick="switchSubTab(this, 'set-tax')">
                         <i class="fas fa-percentage"></i> Tax
                     </button>
-                    <button class="sub-tab" data-sub="set-users" onclick="switchSubTab(this, 'set-users')">
+                    <button class="sub-tab owner-only" data-sub="set-users" onclick="switchSubTab(this, 'set-users')">
                         <i class="fas fa-users-cog"></i> Users
                     </button>
-                    <button class="sub-tab" data-sub="set-wa" onclick="switchSubTab(this, 'set-wa')">
+                    <button class="sub-tab owner-only" data-sub="set-wa" onclick="switchSubTab(this, 'set-wa')">
                         <i class="fab fa-whatsapp"></i> WhatsApp
                     </button>
-                    <button class="sub-tab" data-sub="set-cats" onclick="switchSubTab(this, 'set-cats')">
-                        <i class="fas fa-tags"></i> Categories
+                    <button class="sub-tab owner-only" data-sub="set-cats" onclick="switchSubTab(this, 'set-cats')">
+                        <i class="fas fa-tags"></i> Expenses
                     </button>
-                    <button class="sub-tab" data-sub="set-recipes" onclick="switchSubTab(this, 'set-recipes')">
+                    <button class="sub-tab owner-only" data-sub="set-recipes" onclick="switchSubTab(this, 'set-recipes')">
                         <i class="fas fa-flask"></i> Recipes
                     </button>
-                    <button class="sub-tab" data-sub="set-units" onclick="switchSubTab(this, 'set-units')">
+                    <button class="sub-tab owner-only" data-sub="set-products" onclick="switchSubTab(this, 'set-products')">
+                        <i class="fas fa-ice-cream"></i> Products
+                    </button>
+                    <button class="sub-tab owner-only" data-sub="set-units" onclick="switchSubTab(this, 'set-units')">
                         <i class="fas fa-balance-scale"></i> Units
                     </button>
-                    <button class="sub-tab" data-sub="set-backup" onclick="switchSubTab(this, 'set-backup')">
+                    <button class="sub-tab owner-only" data-sub="set-backup" onclick="switchSubTab(this, 'set-backup')">
                         <i class="fas fa-database"></i> Backup
                     </button>
                 </div>
 
                 <div class="settings-panes">
+                    <!-- My Profile (Added) -->
+                    <div id="sub-set-profile" class="sub-tab-content active">
+                        <div class="settings-card shadow-lg">
+                            <h3>My Profile</h3>
+                            <p class="settings-desc">Update your name and password.</p>
+                            <div class="form-group">
+                                <label>Your Name</label>
+                                <input type="text" id="setUserProfileName">
+                            </div>
+                            <div class="form-group">
+                                <label>New Password (min 6 chars)</label>
+                                <input type="password" id="setUserProfilePass" placeholder="Leave blank to keep current">
+                            </div>
+                            <button class="btn-primary" onclick="saveUserProfile()"><i class="fas fa-id-card"></i> Update Profile</button>
+                        </div>
+                    </div>
+
                     <!-- Business Profile -->
-                    <div id="sub-set-biz" class="sub-tab-content active">
+                    <div id="sub-set-biz" class="sub-tab-content">
                         <div class="settings-card shadow-lg">
                             <h3>Business Profile</h3>
                             <div class="form-group">
@@ -807,7 +900,7 @@
                                 <div class="template-help">
                                     <small>Available placeholders: <code>{customer_name}</code> <code>{invoice_no}</code> <code>{pending_amount}</code> <code>{delivery_date}</code> <code>{upi}</code> <code>{bank_details}</code></small>
                                 </div>
-                                <textarea id="setWhatsAppTemplate" rows="12">🍮 *IR Pudding* 🍮
+                                <textarea id="setWhatsAppTemplate" rows="12">*IR PUDDING*
 
 Dear {customer_name},
 
@@ -815,23 +908,21 @@ Greetings from IR Pudding!
 
 This is a friendly reminder regarding a pending payment on your account.
 
-📄 *Invoice No:* {invoice_no}
-💰 *Pending Amount:* ₹{pending_amount}
-📅 *Delivery Date:* {delivery_date}
+- *Invoice No:* {invoice_no}
+- *Pending Amount:* INR {pending_amount}
+- *Date:* {delivery_date}
 
 We kindly request you to settle the balance at your earliest convenience.
 
-💳 *Payment Options:*
-• *UPI:* {upi}
-• Cash
-• Bank Transfer
+*Payment Options:*
+- *UPI:* {upi}
+- Cash
+- Bank Transfer
 {bank_details}
 
-If already paid, please ignore this message. 🙏
+If already paid, please ignore this message.
 
-Thank you for your continued partnership!
-
-Warm regards,
+Thank you!
 *Team IR Pudding*</textarea>
                             </div>
                             <div class="template-actions">
@@ -846,15 +937,20 @@ Warm regards,
                     <div id="sub-set-cats" class="sub-tab-content">
                         <div class="settings-card">
                             <h3>Expense Categories</h3>
-                            <div id="expenseCategoriesList" class="category-list"></div>
-                            <div class="add-category-form" style="margin-top:20px">
-                                <input type="text" id="newExpenseCategory" placeholder="New category name">
-                                <button class="btn-primary" onclick="addExpenseCategory()"><i class="fas fa-plus"></i> Add</button>
+                            <p class="settings-desc">Manage categories used for logging business expenses.</p>
+                            <div id="expenseCategoriesList" class="thumbnail-grid" style="margin-top:16px">
+                                <!-- Categories as cards -->
+                            </div>
+                            <div class="add-category-form" style="margin-top:24px;border-top:1px solid var(--border-light);padding-top:16px">
+                                <label>Add New Category</label>
+                                <div style="display:flex;gap:8px">
+                                    <input type="text" id="newExpenseCategory" placeholder="e.g., Marketing, Rent">
+                                    <button class="btn-primary" onclick="addExpenseCategory()"><i class="fas fa-plus"></i> Add</button>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Recipe Configuration -->
                     <div id="sub-set-recipes" class="sub-tab-content">
                         <div class="settings-card">
                             <h3>Recipe Configuration</h3>
@@ -865,15 +961,37 @@ Warm regards,
                         </div>
                     </div>
 
+                    <!-- Products -->
+                    <div id="sub-set-products" class="sub-tab-content">
+                        <div class="settings-card">
+                            <h3>Manage Products</h3>
+                            <p class="settings-desc">Define products and their custom sizes (e.g., 100ml, 250ml).</p>
+                            <div id="productsGrid" class="products-grid" style="margin-top:20px">
+                                <p class="no-data">Loading products...</p>
+                            </div>
+                            <div style="margin-top:24px;text-align:right">
+                                <button class="btn-primary" onclick="openModal('addProduct')">
+                                    <i class="fas fa-plus"></i> Add New Product
+                                </button>
+                            </div>
+                        </div>
+                        <script>
+                            if (typeof loadProducts === 'function') loadProducts();
+                        </script>
+                    </div>
+
                     <!-- Units -->
-                    <div id="sub-set-units" class="sub-tab-content">
+                    <div id="sub-set-units" class="sub-tab-content owner-only">
                         <div class="settings-card">
                             <h3>Units Management</h3>
                             <p class="settings-desc">Manage measurement units used in stock and recipes.</p>
-                            <div id="unitsList" class="category-list"></div>
-                            <div class="add-category-form" style="margin-top:20px">
-                                <input type="text" id="newUnitName" placeholder="e.g., Grams">
-                                <button class="btn-primary" onclick="addUnit()"><i class="fas fa-plus"></i> Add Unit</button>
+                            <div id="unitsList" class="thumbnail-grid" style="margin-top:16px"></div>
+                            <div class="add-category-form" style="margin-top:24px;border-top:1px solid var(--border-light);padding-top:16px">
+                                <label>Add New Unit</label>
+                                <div style="display:flex;gap:8px">
+                                    <input type="text" id="newUnitName" placeholder="e.g., Grams">
+                                    <button class="btn-primary" onclick="addUnit()"><i class="fas fa-plus"></i> Add Unit</button>
+                                </div>
                             </div>
                         </div>
                         <script>
@@ -894,14 +1012,20 @@ Warm regards,
 
                 <script>
                     function switchSubTab(btn, paneId) {
-                        // Reset all tabs
                         const section = btn.closest('section');
                         section.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
                         section.querySelectorAll('.sub-tab-content').forEach(p => p.classList.remove('active'));
                         
-                        // Activate selected
                         btn.classList.add('active');
-                        document.getElementById('sub-' + paneId).classList.add('active');
+                        const target = document.getElementById('sub-' + paneId);
+                        if (target) {
+                           target.classList.add('active');
+                           // Load data based on tab
+                           if (paneId === 'set-products' && typeof loadProducts === 'function') loadProducts();
+                           if (paneId === 'set-cats' && typeof loadSettingsCategories === 'function') loadSettingsCategories();
+                           if (paneId === 'set-units' && typeof loadUnitsSetting === 'function') loadUnitsSetting();
+                           if (paneId === 'set-profile' && typeof loadSettings === 'function') loadSettings();
+                        }
                     }
                 </script>
             </section>
@@ -972,5 +1096,16 @@ Warm regards,
     <script src="js/salary.js"></script>
     <script src="js/reports.js"></script>
     <script src="js/settings.js"></script>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('✅ Service Worker registered'))
+            .catch(err => console.log('❌ Service Worker registry failed', err));
+        });
+      }
+    </script>
 </body>
 </html>

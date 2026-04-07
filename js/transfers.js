@@ -18,26 +18,45 @@ async function loadTransfers() {
 
         const list = Object.entries(transfers)
             .map(([id, t]) => ({ id, ...t }))
-            .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+            .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
         if (list.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" class="no-data">No transfers yet</td></tr>';
             return;
         }
 
+        const currentLoc = getActiveLocation();
+
         tbody.innerHTML = list.map(t => {
             const itemsSummary = (t.items || []).map(i => `${i.name}: ${i.qty}`).join(', ');
+            const isInTransit = t.status === 'in-transit';
+            // Staff of the destination location OR Owner can confirm
+            const canConfirm = isInTransit && (currentRole === ROLES.OWNER || currentLocation === t.to);
+
             return `
                 <tr>
                     <td>${formatDate(t.date)}</td>
                     <td><span class="status status-placed">${capitalize(t.from)}</span></td>
                     <td><span class="status status-delivered">${capitalize(t.to)}</span></td>
                     <td>${itemsSummary || '-'}</td>
-                    <td>${getStatusBadge(t.status || 'completed')}</td>
                     <td>
-                        <button class="btn-icon danger" title="Delete" onclick="deleteTransfer('${t.id}')">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                        <span class="status ${isInTransit ? 'status-pending' : 'status-ok'}">
+                            ${isInTransit ? '<i class="fas fa-truck"></i> In-Transit' : '✅ Received'}
+                        </span>
+                    </td>
+                    <td>
+                        <div style="display:flex;gap:4px">
+                            ${canConfirm ? `
+                                <button class="btn-sm btn-primary" onclick="confirmTransfer('${t.id}')">
+                                    <i class="fas fa-check"></i> Confirm Receipt
+                                </button>
+                            ` : ''}
+                            ${isOwner() ? `
+                                <button class="btn-icon danger" title="Delete" onclick="deleteTransfer('${t.id}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            ` : ''}
+                        </div>
                     </td>
                 </tr>
             `;
@@ -47,13 +66,45 @@ async function loadTransfers() {
     }
 }
 
+async function confirmTransfer(id) {
+    if (!await confirmAction('Confirm that you have received all items in this transfer?')) return;
+
+    try {
+        const trfSnap = await dbRef.transfers.child(id).once('value');
+        const t = trfSnap.val();
+        if (!t || t.status !== 'in-transit') return;
+
+        // Update stock: add to destination
+        for (const item of t.items) {
+            const toRef = dbRef.stock.child(`${t.to}/${item.type}/${item.key}/qty`);
+            const toSnap = await toRef.once('value');
+            const toQty = parseFloat(toSnap.val()) || 0;
+            await toRef.set(toQty + item.qty);
+        }
+
+        // Mark as completed
+        await dbRef.transfers.child(id).update({
+            status: 'completed',
+            receivedBy: currentUser.uid,
+            receivedAt: Date.now()
+        });
+
+        showToast('Stock received and inventory updated!', 'success');
+        loadTransfers();
+        if (typeof loadStock === 'function') loadStock('food');
+    } catch (e) {
+        showToast('Error confirming transfer', 'error');
+    }
+}
+
 async function loadTransferItems() {
     const selects = document.querySelectorAll('.trf-item-select');
-    const loc = currentRole === ROLES.OWNER ? 'bangalore' : currentLocation;
+    // For transfer source, always use the current user's location (unless owner chooses)
+    const loc = document.getElementById('modalTrfFrom')?.value || (currentRole === ROLES.OWNER ? 'bangalore' : currentLocation);
 
     try {
         const items = [];
-        for (const type of ['food', 'nonfood']) {
+        for (const type of ['food', 'nonfood', 'staff']) {
             const snap = await dbRef.stock.child(`${loc}/${type}`).once('value');
             const data = snap.val() || {};
             Object.entries(data).forEach(([key, item]) => {
@@ -62,7 +113,7 @@ async function loadTransferItems() {
         }
 
         selects.forEach(select => {
-            // Keep first option
+            const currentVal = select.value;
             select.innerHTML = '<option value="">Select item...</option>';
             items.forEach(item => {
                 const opt = document.createElement('option');
@@ -72,6 +123,7 @@ async function loadTransferItems() {
                 opt.dataset.type = item.type;
                 select.appendChild(opt);
             });
+            if (currentVal) select.value = currentVal;
         });
     } catch (e) { /* ignore */ }
 }
@@ -132,32 +184,30 @@ async function saveTransfer() {
     }
 
     try {
-        // Save transfer record
+        // 1. Deduct stock from source immediately
+        for (const item of items) {
+            const fromRef = dbRef.stock.child(`${from}/${item.type}/${item.key}/qty`);
+            const fromSnap = await fromRef.once('value');
+            const fromQty = parseFloat(fromSnap.val()) || 0;
+            
+            if (fromQty < item.qty) {
+                showToast(`Insufficient stock for ${item.name} at ${capitalize(from)}`, 'error');
+                return;
+            }
+            await fromRef.set(fromQty - item.qty);
+        }
+
+        // 2. Save transfer record as in-transit
         const trfId = generateId();
         await dbRef.transfers.child(trfId).set({
             date, from, to, items, notes,
-            status: 'completed',
+            status: 'in-transit',
             createdBy: currentUser.uid,
             createdAt: Date.now()
         });
 
-        // Update stock: deduct from source, add to destination
-        for (const item of items) {
-            const fromRef = dbRef.stock.child(`${from}/${item.type}/${item.key}/qty`);
-            const toRef = dbRef.stock.child(`${to}/${item.type}/${item.key}/qty`);
-
-            const fromSnap = await fromRef.once('value');
-            const toSnap = await toRef.once('value');
-
-            const fromQty = parseFloat(fromSnap.val()) || 0;
-            const toQty = parseFloat(toSnap.val()) || 0;
-
-            await fromRef.set(Math.max(0, fromQty - item.qty));
-            await toRef.set(toQty + item.qty);
-        }
-
         closeModal();
-        showToast('Stock transferred successfully!', 'success');
+        showToast('Transfer started! Status: In-Transit', 'success');
         loadTransfers();
     } catch (e) {
         console.error('Transfer error:', e);

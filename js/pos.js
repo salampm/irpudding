@@ -356,11 +356,15 @@ async function deductStockForOrder(items) {
         for (const item of items) {
             if (item.stockId) {
                 const stockRef = dbRef.dailyStock ? dbRef.dailyStock.child(item.stockId) : firebase.database().ref('dailyStock').child(item.stockId);
-                const sSnap = await stockRef.once('value');
-                if (sSnap.exists()) {
-                    const currentQty = parseInt(sSnap.val().qty) || 0;
-                    await stockRef.update({ qty: Math.max(0, currentQty - item.qty) });
-                }
+                
+                await stockRef.transaction(currentData => {
+                    if (currentData) {
+                        const currentQty = parseInt(currentData.qty) || 0;
+                        currentData.qty = Math.max(0, currentQty - item.qty);
+                        currentData.updatedAt = Date.now();
+                    }
+                    return currentData;
+                });
             }
         }
     } catch (e) {

@@ -62,6 +62,8 @@
 html {
     font-size: 14px;
     scroll-behavior: smooth;
+    overscroll-behavior-y: none; /* Disable pull-to-refresh */
+    touch-action: manipulation; /* Disable double-tap/pinch zoom */
 }
 
 body {
@@ -71,6 +73,13 @@ body {
     line-height: 1.6;
     overflow-x: hidden;
     min-height: 100vh;
+    -webkit-user-select: none; /* Prevent selection for UI elements */
+    user-select: none;
+}
+
+input, textarea, select {
+    -webkit-user-select: text; /* Allow selection for data entry */
+    user-select: text;
 }
 
 a { text-decoration: none; color: inherit; }
@@ -1571,5 +1580,68 @@ input:focus, select:focus, textarea:focus {
 .toggle-switch input:checked + .toggle-slider { background: var(--success); }
 .toggle-switch input:checked + .toggle-slider::before { transform: translateX(22px); }
 
-/* Hidden owner-only elements (shown by JS) */
-/* These will be toggled by auth.js based on role */
+/* Thumbnail Grid (Cards) */
+.thumbnail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 12px;
+}
+
+.category-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    text-align: center;
+    position: relative;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.category-card:hover {
+    border-color: var(--primary);
+    background: var(--bg);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+
+.category-card i {
+    font-size: 1.5rem;
+    color: var(--primary);
+    margin-bottom: 8px;
+    display: block;
+}
+
+.category-card .name {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text);
+}
+
+.category-card .delete-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(220, 53, 69, 0.1);
+    color: var(--danger);
+    border: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    cursor: pointer;
+    opacity: 0;
+    transition: var(--transition);
+}
+
+.category-card:hover .delete-btn {
+    opacity: 1;
+}
+
+.category-card .delete-btn:hover {
+    background: var(--danger);
+    color: white;
+}
