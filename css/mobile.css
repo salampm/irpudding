@@ -111,36 +111,37 @@
         padding: 0;
     }
     .data-table, .data-table tbody { 
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        width: 100%; 
-        border: none;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+        width: 100% !important; 
+        border: none !important;
     }
     .data-table thead { 
-        display: none; 
+        display: none !important; 
     }
     .data-table tr {
-        display: flex;
-        flex-direction: column;
-        background: var(--bg-card);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        padding: 16px;
-        box-shadow: var(--shadow-sm);
+        display: flex !important;
+        flex-direction: column !important;
+        background: var(--bg-card) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: var(--radius) !important;
+        padding: 16px !important;
+        box-shadow: var(--shadow-sm) !important;
+        margin-bottom: 8px;
     }
     .data-table td {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 8px 0;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 8px 0 !important;
         border-bottom: 1px solid var(--border-light) !important;
-        text-align: right;
-        min-height: 32px;
-        border-left: none;
-        border-right: none;
-        border-top: none;
-        font-size: 0.85rem;
+        text-align: right !important;
+        min-height: 32px !important;
+        border-left: none !important;
+        border-right: none !important;
+        border-top: none !important;
+        font-size: 0.85rem !important;
     }
     .data-table td:last-child {
         border-bottom: none !important;
@@ -159,18 +160,19 @@
     }
     /* First cell (Name/Item) becomes the card header */
     .data-table td:first-child {
-        justify-content: flex-start;
-        align-items: flex-start;
-        flex-direction: column;
-        font-size: 1.05rem;
-        text-align: left;
-        border-bottom: 1px solid var(--border);
-        margin-bottom: 8px;
-        padding-bottom: 12px;
-        gap: 4px;
+        display: flex !important;
+        justify-content: flex-start !important;
+        align-items: flex-start !important;
+        flex-direction: column !important;
+        font-size: 1.05rem !important;
+        text-align: left !important;
+        border-bottom: 1px solid var(--border) !important;
+        margin-bottom: 8px !important;
+        padding-bottom: 12px !important;
+        gap: 4px !important;
     }
     .data-table td:first-child::before {
-        display: none;
+        display: none !important;
     }
     .data-table td.no-data {
         justify-content: center;
