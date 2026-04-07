@@ -199,7 +199,7 @@ async function editRecipe(productId, productName) {
                 </div>
                 <div class="form-group" style="flex:1;margin-bottom:0">
                     <input type="number" class="recipe-input" data-ingredient="${key}"
-                           value="${recipe[key]?.qty_per_480 || ''}"
+                           value="${(recipe[key] && recipe[key].qty_per_480) ? recipe[key].qty_per_480 : ''}"
                            placeholder="for 480 pcs" min="0" step="0.01">
                 </div>
             </div>
@@ -445,12 +445,12 @@ async function processDailyStockAdjust(action) {
             // Log to Inventory Ledger
             var ledgerId = generateId();
             await dbRef.inventoryLedger.child(ledgerId).set({
-                productId: currentData.productId || document.getElementById('modalAdjProdId')?.value,
-                productName: currentData.productName || document.getElementById('modalAdjProdName')?.value,
-                size: currentData.size || document.getElementById('modalAdjSize')?.value,
+                productId: currentData.productId || (document.getElementById('modalAdjProdId') ? document.getElementById('modalAdjProdId').value : ''),
+                productName: currentData.productName || (document.getElementById('modalAdjProdName') ? document.getElementById('modalAdjProdName').value : ''),
+                size: currentData.size || (document.getElementById('modalAdjSize') ? document.getElementById('modalAdjSize').value : ''),
                 action: ledgerAction,
                 qty: adjQty,
-                location: currentData.location || document.getElementById('modalAdjLocation')?.value,
+                location: currentData.location || (document.getElementById('modalAdjLocation') ? document.getElementById('modalAdjLocation').value : ''),
                 date: adjDate,
                 timestamp: Date.now(),
                 by: currentUser.name
@@ -505,9 +505,11 @@ async function saveDailyStock() {
     var adjDate = document.getElementById('modalDSDate').value || getTodayStr();
 
     var productId = prodSelect.value;
-    var productName = prodSelect.options[prodSelect.selectedIndex]?.textContent;
+    var productOpt = prodSelect.options[prodSelect.selectedIndex];
+    var productName = productOpt ? productOpt.textContent : '';
     var size = sizeSelect.value;
-    var ml = sizeSelect.options[sizeSelect.selectedIndex]?.dataset?.ml || 0;
+    var sizeOpt = sizeSelect.options[sizeSelect.selectedIndex];
+    var ml = (sizeOpt && sizeOpt.dataset) ? sizeOpt.dataset.ml : 0;
     var qty = parseInt(document.getElementById('modalDSQty').value) || 0;
     var location = document.getElementById('modalDSLocation').value;
     
