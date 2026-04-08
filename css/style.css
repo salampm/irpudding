@@ -926,12 +926,22 @@ input:focus, select:focus, textarea:focus {
     border-radius: var(--radius);
     padding: 20px;
     box-shadow: var(--shadow-card);
+    position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
 .chart-card h3 {
     font-size: 0.95rem;
     font-weight: 600;
     margin-bottom: 16px;
+    flex: 0 0 auto;
+}
+
+.chart-card canvas {
+    max-height: 300px;
+    width: 100% !important;
+    flex: 1 1 auto;
 }
 
 /* ======================
