@@ -29,8 +29,8 @@
     }
 }
 
-/* ---- Mobile (<=768px) ---- */
-@media (max-width: 768px) {
+/* ---- Tablets and Phones (<=1024px) ---- */
+@media (max-width: 1024px) {
     :root {
         --sidebar-width: 0px;
         --header-height: 56px;
@@ -116,64 +116,95 @@
        STAFF-STYLE TABLE TRANSFORMATION
        ========================================= */
     .table-container { 
-        overflow: visible; 
-        background: transparent; 
-        box-shadow: none; 
-        padding: 0;
+        overflow: visible !important; /* Block horizontal scroll at container level */
+        background: transparent !important; 
+        box-shadow: none !important; 
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
     }
-    .data-table, .data-table tbody, .data-table tr, .data-table td { 
+    
+    /* Nuclear force everything into a block layout */
+    .data-table, 
+    .data-table thead, 
+    .data-table tbody, 
+    .data-table tr, 
+    .data-table td { 
         display: block !important;
         width: 100% !important; 
         box-sizing: border-box !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
     }
-    .data-table thead { 
+    
+    /* Hide headers - and ensure they STAY hidden */
+    .data-table thead tr { 
         display: none !important; 
     }
+    
     .data-table tr {
         background: var(--bg-card) !important;
         border: 1px solid var(--border) !important;
-        border-radius: var(--radius) !important;
-        padding: 16px !important;
-        box-shadow: var(--shadow-sm) !important;
-        margin-bottom: 16px !important;
+        border-radius: 16px !important; /* Premium rounded corners */
+        padding: 12px !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.04) !important;
+        margin-bottom: 12px !important;
         position: relative !important;
         overflow: hidden !important;
+        width: 100% !important;
     }
-    /* The first cell (primary info) becomes the "Card Title" */
+
+    /* Card Title (Staff Style) */
     .data-table td:first-child {
         font-weight: 700 !important;
-        font-size: 1.1rem !important;
+        font-size: 1.05rem !important;
         color: var(--primary) !important;
-        border-bottom: 2px solid var(--primary-light) !important;
-        padding-bottom: 12px !important;
-        margin-bottom: 12px !important;
+        border-bottom: 1px solid var(--primary-light) !important;
+        padding: 0 0 8px 44px !important; /* Space for the avatar */
+        margin-bottom: 8px !important;
         text-align: left !important;
+        position: relative !important;
     }
-    .data-table td:first-child::before {
-        display: none !important;
+    
+    /* CSS Avatar for Table Cards */
+    .data-table td:first-child::after {
+        content: '\f007'; /* Default user icon */
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
+        position: absolute;
+        left: 0;
+        top: -4px;
+        width: 32px;
+        height: 32px;
+        background: var(--primary-light);
+        color: var(--primary);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9rem;
     }
 
     /* All other cells become Detail Rows (Staff Style - Space Between) */
     .data-table td {
-        padding: 10px 0 !important;
+        padding: 7px 0 !important;
         border: none !important;
-        border-bottom: 1px solid var(--border-light) !important;
+        border-bottom: 1px solid rgba(0,0,0,0.03) !important;
         text-align: right !important;
         min-height: auto !important;
-        font-size: 0.9rem !important;
+        font-size: 0.95rem !important;
         display: flex !important;
         justify-content: space-between !important;
         align-items: center !important;
-        gap: 12px !important;
+        gap: 8px !important;
     }
-    .data-table td:last-child {
-        border-bottom: none !important;
-    }
+
     /* Staff-style detail labels (Left side) */
     .data-table td::before {
         content: attr(data-label);
         display: block !important;
-        font-size: 0.72rem !important;
+        font-size: 0.68rem !important;
         font-weight: 700 !important;
         color: var(--text-muted) !important;
         text-transform: uppercase !important;
@@ -190,17 +221,46 @@
         text-align: right !important;
         max-width: 60% !important;
     }
-
-    /* Actions cell - special styling at the bottom of the card */
+    
     .data-table td:last-child {
-        margin-top: 16px !important;
-        padding-top: 16px !important;
+        margin-top: 6px !important;
+        padding-top: 10px !important;
         border-top: 1px dashed var(--border) !important;
+        border-bottom: none !important;
         flex-direction: row !important;
-        justify-content: flex-end !important;
+        justify-content: center !important;
+        gap: 16px !important;
     }
-    .data-table td:last-child::before {
+
+    /* Force horizontal buttons */
+    .data-table td:last-child div {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: center !important;
+        align-items: center !important;
+        width: auto !important;
+        gap: 12px !important;
+    }
+
+    .data-table td:last-child .btn-icon {
+        width: 38px !important;
+        height: 38px !important;
+        border-radius: 8px !important;
+        background: var(--bg) !important;
+        border: 1px solid var(--border) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    /* Hide owner-only cells properly in card view */
+    .data-table td[style*="display: none"],
+    .data-table td.owner-only {
         display: none !important;
+        padding: 0 !important;
+        border: none !important;
+        margin: 0 !important;
+        height: 0 !important;
     }
 
     /* Prevent any cell from being empty or hidden weirdly */

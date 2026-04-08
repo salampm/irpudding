@@ -789,14 +789,6 @@ function getModalContent(type, data) {
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Payment Terms</label>
-                        <select id="modalCustPayTerms">
-                            <option value="back_to_back">Back to Back (on delivery)</option>
-                            <option value="weekly">Weekly</option>
-                            <option value="after_next_delivery">After Next Delivery</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
                         <label>Address</label>
                         <textarea id="modalCustAddress" rows="2" placeholder="Delivery address"></textarea>
                     </div>

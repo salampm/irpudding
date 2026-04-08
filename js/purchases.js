@@ -31,17 +31,19 @@ async function loadPurchases() {
             const total = (parseFloat(p.qty) || 0) * (parseFloat(p.price) || 0);
             return `
                 <tr>
-                    <td>${formatDate(p.date)}</td>
-                    <td>${p.supplierName || p.supplier || '-'}</td>
-                    <td>${p.itemName || p.item || '-'}</td>
-                    <td>${p.qty || 0} ${p.unit || ''}</td>
-                    ${isOwner() ? `<td>${formatCurrency(p.price)}</td>` : ''}
-                    ${isOwner() ? `<td><strong>${formatCurrency(total)}</strong></td>` : ''}
-                    ${isOwner() ? `<td>${getStatusBadge(p.paymentStatus || 'pending')}</td>` : ''}
-                    <td>
-                        <button class="btn-icon danger" title="Delete" onclick="deletePurchase('${p.id}')">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                    <td data-label="Date">${formatDate(p.date)}</td>
+                    <td data-label="Supplier">${p.supplierName || p.supplier || '-'}</td>
+                    <td data-label="Item">${p.itemName || p.item || '-'}</td>
+                    <td data-label="Qty">${p.qty || 0} ${p.unit || ''}</td>
+                    ${isOwner() ? `<td data-label="Price">${formatCurrency(p.price)}</td>` : ''}
+                    ${isOwner() ? `<td data-label="Total"><strong>${formatCurrency(total)}</strong></td>` : ''}
+                    ${isOwner() ? `<td data-label="Payment">${getStatusBadge(p.paymentStatus || 'pending')}</td>` : ''}
+                    <td data-label="Actions">
+                        <div style="display:flex;gap:4px;justify-content:flex-end;width:100%">
+                            <button class="btn-icon danger" title="Delete" onclick="deletePurchase('${p.id}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
                     </td>
                 </tr>
             `;

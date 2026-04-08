@@ -307,17 +307,17 @@ async function loadLedger() {
 
         tbody.innerHTML = entries.map(e => `
             <tr>
-                <td>${formatDate(e.date)}</td>
-                <td>${e.invoiceNo}</td>
-                <td>${e.type === 'Invoice' ?
+                <td data-label="Date">${formatDate(e.date)}</td>
+                <td data-label="Invoice">${e.invoiceNo}</td>
+                <td data-label="Type">${e.type === 'Invoice' ?
                     '<span class="status status-pending">Invoice</span>' :
                     '<span class="status status-settled">Payment</span>'
                 }</td>
-                <td class="${e.amount >= 0 ? 'text-danger' : 'text-success'}">
+                <td data-label="Amount" class="${e.amount >= 0 ? 'text-danger' : 'text-success'}">
                     ${e.amount >= 0 ? '+' : ''}${formatCurrency(Math.abs(e.amount))}
                 </td>
-                <td><strong>${formatCurrency(e.balance)}</strong></td>
-                <td class="text-muted">${e.notes || '-'}</td>
+                <td data-label="Balance"><strong>${formatCurrency(e.balance)}</strong></td>
+                <td data-label="Notes" class="text-muted">${e.notes || '-'}</td>
             </tr>
         `).join('');
     } catch (e) {

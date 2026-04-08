@@ -11,7 +11,7 @@ async function loadCustomers() {
     if (!tbody) return;
 
     const loc = getActiveLocation();
-    tbody.innerHTML = '<tr><td colspan="7" class="no-data">Loading...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="no-data">Loading...</td></tr>';
 
     try {
         const snap = await dbRef.customers.once('value');
@@ -23,7 +23,7 @@ async function loadCustomers() {
             .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
         if (filtered.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="no-data">No customers yet</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="no-data">No customers yet</td></tr>';
             return;
         }
 
@@ -41,12 +41,6 @@ async function loadCustomers() {
             }
         });
 
-        const payTermsLabels = {
-            'back_to_back': 'Back to Back',
-            'weekly': 'Weekly',
-            'after_next_delivery': 'After Next Delivery'
-        };
-
         tbody.innerHTML = filtered.map(c => `
             <tr>
                 <td data-label="Name">
@@ -55,7 +49,6 @@ async function loadCustomers() {
                 </td>
                 <td data-label="Phone">${c.phone || '-'}</td>
                 <td data-label="Location"><span class="status status-placed">${capitalize(c.location)}</span></td>
-                <td data-label="Terms">${payTermsLabels[c.paymentTerms] || c.paymentTerms || '-'}</td>
                 <td data-label="GST">${c.gst ? '<span class="status status-ok">Yes</span>' : '<span class="text-muted">No</span>'}</td>
                 ${isOwner() ? `<td data-label="Outstanding" class="${(outstanding[c.id] || 0) > 0 ? 'text-danger' : ''}"><strong>${formatCurrency(outstanding[c.id] || 0)}</strong></td>` : ''}
                 <td data-label="Actions">
@@ -76,7 +69,7 @@ async function loadCustomers() {
             </tr>
         `).join('');
     } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="7" class="no-data">Error loading customers</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="no-data">Error loading customers</td></tr>';
         console.error('Customers error:', e);
     }
 }
@@ -85,7 +78,6 @@ async function saveCustomer() {
     const name = document.getElementById('modalCustName').value.trim();
     const phone = document.getElementById('modalCustPhone').value.trim();
     const location = document.getElementById('modalCustLocation').value;
-    const paymentTerms = document.getElementById('modalCustPayTerms').value;
     const address = document.getElementById('modalCustAddress').value.trim();
     const gst = document.getElementById('modalCustGST').checked;
     const gstin = gst ? (document.getElementById('modalCustGSTIN').value.trim()) : '';
@@ -99,7 +91,7 @@ async function saveCustomer() {
     try {
         const key = generateId();
         await dbRef.customers.child(key).set({
-            name, phone, location, paymentTerms, address,
+            name, phone, location, address,
             gst, gstin, notes,
             createdAt: Date.now()
         });
@@ -119,7 +111,6 @@ function editCustomer(customer) {
         document.getElementById('modalCustName').value = customer.name || '';
         document.getElementById('modalCustPhone').value = customer.phone || '';
         document.getElementById('modalCustLocation').value = customer.location || 'bangalore';
-        document.getElementById('modalCustPayTerms').value = customer.paymentTerms || 'back_to_back';
         document.getElementById('modalCustAddress').value = customer.address || '';
         document.getElementById('modalCustGST').checked = customer.gst || false;
         if (customer.gst) {
@@ -136,7 +127,6 @@ function editCustomer(customer) {
                     name: document.getElementById('modalCustName').value.trim(),
                     phone: document.getElementById('modalCustPhone').value.trim(),
                     location: document.getElementById('modalCustLocation').value,
-                    paymentTerms: document.getElementById('modalCustPayTerms').value,
                     address: document.getElementById('modalCustAddress').value.trim(),
                     gst: document.getElementById('modalCustGST').checked,
                     gstin: document.getElementById('modalCustGST').checked ? document.getElementById('modalCustGSTIN').value.trim() : '',

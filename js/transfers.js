@@ -35,17 +35,17 @@ async function loadTransfers() {
 
             return `
                 <tr>
-                    <td>${formatDate(t.date)}</td>
-                    <td><span class="status status-placed">${capitalize(t.from)}</span></td>
-                    <td><span class="status status-delivered">${capitalize(t.to)}</span></td>
-                    <td>${itemsSummary || '-'}</td>
-                    <td>
+                    <td data-label="Date">${formatDate(t.date)}</td>
+                    <td data-label="From"><span class="status status-placed">${capitalize(t.from)}</span></td>
+                    <td data-label="To"><span class="status status-delivered">${capitalize(t.to)}</span></td>
+                    <td data-label="Items">${itemsSummary || '-'}</td>
+                    <td data-label="Status">
                         <span class="status ${isInTransit ? 'status-pending' : 'status-ok'}">
                             ${isInTransit ? '<i class="fas fa-truck"></i> In-Transit' : '✅ Received'}
                         </span>
                     </td>
-                    <td>
-                        <div style="display:flex;gap:4px">
+                    <td data-label="Actions">
+                        <div style="display:flex;gap:4px;justify-content:flex-end;width:100%">
                             ${canConfirm ? `
                                 <button class="btn-sm btn-primary" onclick="confirmTransfer('${t.id}')">
                                     <i class="fas fa-check"></i> Confirm Receipt

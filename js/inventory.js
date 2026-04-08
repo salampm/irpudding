@@ -628,15 +628,17 @@ async function loadInventoryLedger() {
         body.innerHTML = filtered.map(function(l) {
             var rowId = Object.keys(logs).find(function(key) { return logs[key].timestamp === l.timestamp && logs[key].productId === l.productId; });
             return '<tr>' +
-                '<td>' + l.date + '<br><small class="text-light">' + new Date(l.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + '</small></td>' +
-                '<td><strong>' + l.productName + '</strong><br><small>' + capitalize(l.size) + '</small></td>' +
-                '<td><span class="status ' + (l.action.includes('Removed') ? 'status-critical' : 'status-ok') + '">' + l.action + '</span></td>' +
-                '<td>' + l.qty + '</td>' +
-                '<td>' + capitalize(l.location) + '</td>' +
-                '<td>' + (l.by || 'System') + '</td>' +
-                '<td>' +
+                '<td data-label="Date">' + l.date + '<br><small class="text-light">' + new Date(l.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) + '</small></td>' +
+                '<td data-label="Product"><strong>' + l.productName + '</strong><br><small>' + capitalize(l.size) + '</small></td>' +
+                '<td data-label="Action"><span class="status ' + (l.action.includes('Removed') ? 'status-critical' : 'status-ok') + '">' + l.action + '</span></td>' +
+                '<td data-label="Qty">' + l.qty + '</td>' +
+                '<td data-label="Location">' + capitalize(l.location) + '</td>' +
+                '<td data-label="By">' + (l.by || 'System') + '</td>' +
+                '<td data-label="Actions">' +
                     (isOwner() ?
-                        '<button class="btn-icon danger" onclick="deleteInventoryLedgerEntry(\'' + rowId + '\')" title="Delete"><i class="fas fa-trash"></i></button>'
+                        '<div style="display:flex;gap:4px;justify-content:flex-end;width:100%">' +
+                            '<button class="btn-icon danger" onclick="deleteInventoryLedgerEntry(\'' + rowId + '\')" title="Delete"><i class="fas fa-trash"></i></button>' +
+                        '</div>'
                     : '-') +
                 '</td>' +
             '</tr>';

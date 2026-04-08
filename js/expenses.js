@@ -36,15 +36,17 @@ async function loadExpenses() {
 
         tbody.innerHTML = filtered.map(e => `
             <tr>
-                <td>${formatDate(e.date)}</td>
-                <td><span class="status status-placed">${e.categoryName || e.category || '-'}</span></td>
-                <td>${e.description || '-'}</td>
-                <td><strong>${formatCurrency(e.amount)}</strong></td>
-                <td>${capitalize(e.location || '-')}</td>
-                <td>
-                    <button class="btn-icon danger" onclick="deleteExpense('${e.id}')">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                <td data-label="Date">${formatDate(e.date)}</td>
+                <td data-label="Category"><span class="status status-placed">${e.categoryName || e.category || '-'}</span></td>
+                <td data-label="Description">${e.description || '-'}</td>
+                <td data-label="Amount"><strong>${formatCurrency(e.amount)}</strong></td>
+                <td data-label="Location">${capitalize(e.location || '-')}</td>
+                <td data-label="Actions">
+                    <div style="display:flex;gap:4px;justify-content:flex-end;width:100%">
+                        <button class="btn-icon danger" onclick="deleteExpense('${e.id}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </td>
             </tr>
         `).join('');
