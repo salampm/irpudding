@@ -52,13 +52,24 @@
         overflow-x: auto !important;
     }
 
-    /* Header */
+    /* Header - Fixed Notch/Island Collision */
     .app-header {
-        left: 0;
-        padding: 0 16px;
+        left: 0 !important;
+        padding-top: env(safe-area-inset-top, 0px) !important;
+        padding-left: 16px !important;
+        padding-right: 16px !important;
+        height: calc(var(--header-height) + env(safe-area-inset-top, 0px)) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 16px !important;
     }
 
-    .menu-toggle { display: block; }
+    .menu-toggle { 
+        display: block !important; 
+        padding: 8px !important;
+        margin: 0 !important;
+    }
     .header-logo { display: flex; }
 
     /* Sidebar */
@@ -77,10 +88,11 @@
 
     .sidebar-close { display: block; }
 
-    /* Main Content */
+    /* Main Content - Dynamic Header Offset */
     .main-content {
-        margin-left: 0;
-        padding: 12px;
+        margin-left: 0 !important;
+        margin-top: calc(var(--header-height) + env(safe-area-inset-top, 0px)) !important;
+        padding: 12px !important;
     }
 
     /* Location Switcher */
