@@ -60,6 +60,7 @@ async function loadPurchaseDropdowns() {
         const suppliers = supSnap.val() || {};
         const supSelect = document.getElementById('modalPurSupplier');
         if (supSelect) {
+            supSelect.innerHTML = '<option value="">Select supplier...</option>';
             Object.entries(suppliers).forEach(([id, sup]) => {
                 const opt = document.createElement('option');
                 opt.value = id;
@@ -70,32 +71,43 @@ async function loadPurchaseDropdowns() {
         }
     } catch (e) { /* ignore */ }
 
-    // Load stock items dropdown
+    // Load stock items dropdown categorized
     try {
         const loc = currentRole === ROLES.OWNER ? 'bangalore' : currentLocation;
-        const allItems = [];
-
-        for (const type of ['food', 'nonfood']) {
-            const snap = await dbRef.stock.child(`${loc}/${type}`).once('value');
-            const items = snap.val() || {};
-            Object.entries(items).forEach(([key, item]) => {
-                allItems.push({ key, name: item.name, unit: item.unit, type });
-            });
-        }
-
         const itemSelect = document.getElementById('modalPurItem');
-        if (itemSelect) {
-            allItems.forEach(item => {
-                const opt = document.createElement('option');
-                opt.value = item.key;
-                opt.textContent = `${item.name} (${item.unit})`;
-                opt.dataset.name = item.name;
-                opt.dataset.unit = item.unit;
-                opt.dataset.type = item.type;
-                itemSelect.appendChild(opt);
-            });
+        if (!itemSelect) return;
+
+        itemSelect.innerHTML = '<option value="">Select item...</option>';
+
+        const categories = [
+            { id: 'food', name: 'Food / Ingredients' },
+            { id: 'nonfood', name: 'Non-Food / Supplies' },
+            { id: 'staff', name: 'Staff Store' }
+        ];
+
+        for (const cat of categories) {
+            const snap = await dbRef.stock.child(`${loc}/${cat.id}`).once('value');
+            const items = snap.val() || {};
+            
+            if (Object.keys(items).length > 0) {
+                const group = document.createElement('optgroup');
+                group.label = cat.name;
+
+                Object.entries(items).forEach(([key, item]) => {
+                    const opt = document.createElement('option');
+                    opt.value = key;
+                    opt.textContent = `${item.name} (${item.unit || ''})`;
+                    opt.dataset.name = item.name;
+                    opt.dataset.unit = item.unit || '';
+                    opt.dataset.type = cat.id;
+                    group.appendChild(opt);
+                });
+                itemSelect.appendChild(group);
+            }
         }
-    } catch (e) { /* ignore */ }
+    } catch (e) { 
+        console.error('Error loading purchase items:', e);
+    }
 }
 
 async function savePurchase() {
@@ -110,9 +122,10 @@ async function savePurchase() {
     const itemType = itemSelect.options[itemSelect.selectedIndex]?.dataset?.type || 'food';
     const qty = parseFloat(document.getElementById('modalPurQty').value) || 0;
     const price = parseFloat(document.getElementById('modalPurPrice').value) || 0;
+    const total = qty * price;
     const location = document.getElementById('modalPurLocation').value;
     const payStatus = document.getElementById('modalPurPayStatus').value;
-    const paidAmt = payStatus === 'partial' ? parseFloat(document.getElementById('modalPurPaidAmt').value) || 0 : (payStatus === 'paid' ? qty * price : 0);
+    const paidAmt = payStatus === 'partial' ? parseFloat(document.getElementById('modalPurPaidAmt').value) || 0 : (payStatus === 'paid' ? total : 0);
     const addToStock = document.getElementById('modalPurAddToStock').checked;
 
     if (!date || !supplierId || !itemKey || qty <= 0) {
@@ -121,17 +134,39 @@ async function savePurchase() {
     }
 
     try {
-        // Save purchase
+        // 1. Save purchase record
         const purchaseId = generateId();
         await dbRef.purchases.child(purchaseId).set({
             date, supplierId, supplierName, item: itemKey, itemName, unit: itemUnit,
-            qty, price, total: qty * price,
+            qty, price, total,
             location, paymentStatus: payStatus, paidAmount: paidAmt,
             createdBy: currentUser.uid,
             createdAt: Date.now()
         });
 
-        // Add to stock if checked
+        // 2. Add to Finance (Expenses)
+        if (total > 0) {
+            const expId = generateId();
+            // Map item types to expense categories
+            let expCat = 'raw_material';
+            let expCatName = 'Raw Material';
+            if (itemType === 'nonfood') { expCat = 'non_food'; expCatName = 'Non-Food'; }
+            else if (itemType === 'staff') { expCat = 'other'; expCatName = 'Staff Expenses'; }
+
+            await dbRef.expenses.child(expId).set({
+                date,
+                category: expCat,
+                categoryName: expCatName,
+                amount: total,
+                location: location,
+                description: `Purchase: ${itemName} (${qty} ${itemUnit}) from ${supplierName}`,
+                purchaseId: purchaseId,
+                createdBy: currentUser.uid,
+                createdAt: Date.now()
+            });
+        }
+
+        // 3. Add to stock if checked
         if (addToStock) {
             const stockRef = dbRef.stock.child(`${location}/${itemType}/${itemKey}/qty`);
             const currentSnap = await stockRef.once('value');
@@ -140,11 +175,12 @@ async function savePurchase() {
         }
 
         closeModal();
-        showToast('Purchase recorded!', 'success');
+        showToast('Purchase and Expense recorded!', 'success');
         loadPurchases();
+        if (typeof loadExpenses === 'function') loadExpenses(); // Refresh expenses if tab is open
     } catch (e) {
         console.error('Save purchase error:', e);
-        showToast('Error saving purchase', 'error');
+        showToast('Error saving purchase info', 'error');
     }
 }
 

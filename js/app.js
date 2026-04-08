@@ -513,19 +513,11 @@ function getModalContent(type, data) {
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Category *</label>
-                        <select id="modalPurCategory" onchange="loadPurItemsByCategory(this.value)">
-                            <option value="">Select category...</option>
-                            <option value="food">Ingredients (Food)</option>
-                            <option value="nonfood">Non-Food Items</option>
-                            <option value="staff">Staff Store</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Item *</label>
+                        <label>Select Item *</label>
                         <select id="modalPurItem">
-                            <option value="">Select item (Select Category First)...</option>
+                            <option value="">Select item...</option>
                         </select>
+                        <small class="text-muted">Shows items from Food, Non-food, and Staff stores</small>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
@@ -534,7 +526,7 @@ function getModalContent(type, data) {
                         </div>
                         <div class="form-group">
                             <label>Price per Unit (₹) *</label>
-                            <input type="number" id="modalPurPrice" min="0" step="0.5" placeholder="Price" oninput="calcPurTotal()">
+                            <input type="number" id="modalPurPrice" min="0" step="0.1" placeholder="Price" oninput="calcPurTotal()">
                         </div>
                     </div>
                     <div class="form-group">
@@ -565,14 +557,16 @@ function getModalContent(type, data) {
                     </div>
                     <div class="form-group">
                         <label>
-                            <input type="checkbox" id="modalPurAddToStock" checked> Auto-add to stock
+                            <input type="checkbox" id="modalPurAddToStock" checked> Auto-add to stock inventory
                         </label>
                     </div>
                     <div class="form-actions">
                         <button class="btn-outline" onclick="closeModal()">Cancel</button>
                         <button class="btn-primary" onclick="savePurchase()"><i class="fas fa-save"></i> Save Purchase</button>
                     </div>
-                    <script>loadPurchaseDropdowns();</script>
+                    <script>
+                        if(typeof loadPurchaseDropdowns === 'function') loadPurchaseDropdowns();
+                    </script>
                 `
             };
 
@@ -1224,37 +1218,6 @@ async function removeStaffUser(uid, name) {
     }
 }
 
-// ---- Purchase Item Category Loader ----
-window.loadPurItemsByCategory = async function(category) {
-    const itemDropdown = document.getElementById('modalPurItem');
-    if (!itemDropdown || !category) {
-        itemDropdown.innerHTML = '<option value="">Select item...</option>';
-        return;
-    }
-
-    itemDropdown.innerHTML = '<option value="">Loading items...</option>';
-    
-    // Items are under dbRef.stock / [location] / [category]
-    // Since we need items from both locations or global, we fetch based on active location
-    const loc = getActiveLocation();
-    const locations = loc === 'all' ? ['bangalore', 'chennai'] : [loc];
-    
-    let allItems = new Set();
-    
-    for (const location of locations) {
-        const snap = await dbRef.stock.child(`${location}/${category}`).once('value');
-        const items = snap.val() || {};
-        Object.values(items).forEach(i => allItems.add(i.name));
-    }
-    
-    if (allItems.size === 0) {
-        itemDropdown.innerHTML = '<option value="">No items found in this category</option>';
-        return;
-    }
-    
-    itemDropdown.innerHTML = '<option value="">Select item...</option>' + 
-        Array.from(allItems).sort().map(name => `<option value="${name}">${name}</option>`).join('');
-};
 
 // ---- Wastage Tracking ----
 window.initWastage = function() {
